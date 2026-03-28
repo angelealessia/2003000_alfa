@@ -23,16 +23,17 @@ async def handle_sensor(sensor_id):
             
             # 2. Fan-out: lo manda a tutte le repliche [cite: 80]
             # Nel file broker.py, dentro handle_sensor:
+            # Nel file broker/broker.py
             for replica_url in REPLICAS:
                 try:
-                    # Aggiungiamo esplicitamente l'header JSON
-                    requests.post(
-                        replica_url, 
-                        json={"sensor_id": sensor_id, "data": measurement},
-                        headers={'Content-Type': 'application/json'} # <--- Fondamentale!
-                    )
-                except:
-                    pass
+                    payload = {"sensor_id": sensor_id, "data": measurement}
+                    # Usiamo 'json=' per impostare automaticamente il Content-Type: application/json
+                    response = requests.post(replica_url, json=payload, timeout=2)
+        
+                    if response.status_code != 200:
+                        print(f"Errore 400 ricevuto! Dettagli: {response.text}")
+                except Exception as e:
+                    print(f"Errore di rete: {e}")
 
 async def main():
     # Prova a connettersi finché il simulatore non risponde
