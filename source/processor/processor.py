@@ -87,5 +87,5 @@ def listen_control():
 if __name__ == "__main__":
     # Avvia lo shutdown listener in un thread separato [cite: 53]
     threading.Thread(target=listen_control, daemon=True).start()
-    # Avvia il server Flask sulla porta 5000
-    app.run(host='0.0.0.0', port=5000)
+    
+    app.run(host='0.0.0.0', port=5000, debug=False)
