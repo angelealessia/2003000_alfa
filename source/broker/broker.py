@@ -39,9 +39,7 @@ async def main():
         except Exception:
             print("In attesa del simulatore...")
             time.sleep(2) # Aspetta 2 secondi prima di riprovare
-    
-    tasks = [handle_sensor(d['id']) for d in devices]
-    await asyncio.gather(*tasks)
+ 
     
     # Crea un task per ogni sensore
     tasks = [handle_sensor(d['id']) for d in devices]
