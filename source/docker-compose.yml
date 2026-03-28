@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  # Il simulatore fornito (deve essere già caricato con docker load)
+  simulator:
+    image: seismic-signal-simulator:multiarch_v1
+    ports:
+      - "8080:8080"
+    restart: always
+
+  # Il tuo Custom Broker
+  broker:
+    build: ./source
+    depends_on:
+      - simulator
+    environment:
+      - SIMULATOR_URL=http://simulator:8080
+    restart: always
