@@ -1,87 +1,87 @@
 1. System Overview
-Il sistema è una piattaforma di monitoraggio sismico distribuita e fault-tolerant progettata per il contesto geopolitico del 2038. Il sistema ingerisce dati grezzi da sensori remoti, li analizza nel dominio della frequenza per identificare minacce (terremoti, esplosioni o eventi nucleari) e garantisce la persistenza dei dati anche in caso di distruzione parziale dei centri di calcolo.
-+3
+The year is 2038. This system is a distributed, fault-tolerant seismic analysis platform designed to monitor ground vibrations in a high-tension geopolitical landscape. The platform ingests real-time data from geographically distributed sensors , redistributes it across replicated processing services , performs frequency-domain analysis (FFT) , and persists detected events in a duplicate-safe manner. A real-time dashboard provides the command center with critical intelligence to initiate defensive protocols.
 
-2. User Stories (Target: 25)
-Area: Ingestione e Distribuzione (Broker)
 
-Come operatore di sistema, voglio che il Broker si connetta ai WebSocket dei sensori per ricevere misurazioni in tempo reale.
-+2
+2. User Stories
+AREA 1 - Data Ingestion & Distribution (Broker)
 
-Come amministratore, voglio che il Broker distribuisca i dati a più repliche di calcolo contemporaneamente (broadcast).
+As a system operator, I want the Broker to connect to sensor WebSockets so that it can capture incoming real-time measurements.
 
-Come responsabile della sicurezza, voglio che il Broker risieda in una regione neutrale eseguendo solo il routing leggero dei dati.
-+2
 
-Come sviluppatore, voglio che il Broker sia in grado di scoprire i sensori disponibili tramite l'endpoint /api/devices/.
+As a system administrator, I want the Broker to redistribute measurements to multiple processing replicas simultaneously using a broadcast model.
 
-Come sistema, voglio ricevere i campionamenti a una frequenza di 20 Hz per garantire la precisione dell'analisi.
 
-Area: Elaborazione e Analisi (Processing)
+As a security officer, I want the Broker to be hosted in a neutral region, performing only lightweight routing without data processing.
 
-Come analista militare, voglio che il sistema applichi la trasformata di Fourier (FFT) per identificare la frequenza dominante dei segnali.
+As a developer, I want the Broker to discover available sensors via the /api/devices/ endpoint.
 
-Come utente, voglio che il sistema utilizzi una finestra scorrevole (sliding window) per analizzare i segnali recenti.
+As a system, I want to receive measurements at a default frequency of 20 Hz to ensure high-fidelity signal analysis.
 
-Come comandante, voglio che un evento sia classificato come "Earthquake" se la frequenza è tra 0.5 e 3.0 Hz.
+AREA 2 - Processing & Analysis (Replicated Services)
 
-Come comandante, voglio che un evento sia classificato come "Conventional Explosion" se la frequenza è tra 3.0 e 8.0 Hz.
+As a military analyst, I want the system to apply Discrete Fourier Transform (DFT) or FFT to identify dominant frequency components.
 
-Come comandante, voglio ricevere un'allerta "Nuclear-like event" per frequenze superiori o uguali a 8.0 Hz.
+As a developer, I want each replica to maintain an in-memory sliding window of recent samples for each sensor.
 
-Come sviluppatore, voglio che ogni replica rimanga in ascolto del flusso di controllo SSE per gestire i segnali di arresto.
+As a commander, I want events with a dominant frequency between 0.5 and 3.0 Hz to be classified as an "Earthquake".
 
-Come sistema, voglio che una replica si spenga immediatamente (forced shutdown) al ricevimento del comando "SHUTDOWN".
+As a commander, I want events with a dominant frequency between 3.0 and 8.0 Hz to be classified as a "Conventional Explosion".
 
-Area: Persistenza e De-duplicazione
+As a commander, I want events with a dominant frequency ≥ 8.0 Hz to be classified as a "Nuclear-like event".
 
-Come data scientist, voglio che tutti gli eventi rilevati siano salvati in un database condiviso (Postgres/MongoDB).
+As a developer, I want each processing replica to listen to the SSE control stream to receive system commands.
 
-Come amministratore di sistema, voglio che il database ignori i duplicati se più repliche inviano lo stesso evento.
+As a system, I want a replica to terminate immediately (forced shutdown) upon receiving a {"command":"SHUTDOWN"} message.
+
+AREA 3 - Persistence & Data Integrity
+
+As a data scientist, I want detected events to be stored in a shared relational or NoSQL database for long-term storage.
+
+As a system administrator, I want the persistence layer to handle requests idempotently to prevent duplicate event storage from different replicas.
 +1
 
-Come utente, voglio che ogni evento salvato includa il timestamp UTC e l'ID del sensore di origine.
+As a user, I want each persisted event to include a UTC timestamp, value in mm/s, and the sensor ID.
 +1
 
-Come analista, voglio poter consultare lo storico di tutti gli eventi sismici passati tramite la dashboard.
+As an analyst, I want to be able to query historical seismic events stored in the database.
 
-Area: Fault Tolerance e Gateway
+AREA 4 - Fault Tolerance & Gateway
 
-Come utente frontend, voglio accedere al sistema tramite un unico entry point (Gateway) che smisti le richieste.
-
-Come amministratore, voglio che il Gateway esegua health check automatici sulle repliche di calcolo.
-
-Come sistema, voglio che le repliche non raggiungibili siano rimosse automaticamente dal bilanciamento.
-
-Come utente, voglio che il sistema continui a funzionare regolarmente anche se alcune repliche falliscono.
-
-Area: Dashboard e Visualizzazione
-
-Come operatore, voglio vedere i nuovi eventi apparire in tempo reale sulla dashboard tramite WebSocket o SSE.
+As a frontend user, I want to access the backend through a single entry point (Gateway) that routes requests to available replicas.
 +1
 
-Come analista, voglio filtrare gli eventi per tipologia (es. solo nucleari).
+As a system administrator, I want the Gateway to use health checks to detect and exclude failed replicas automatically.
 
-Come analista, voglio filtrare gli eventi in base alla posizione geografica del sensore.
+As a commander, I want the system to remain operational even if one or more processing replicas fail abruptly.
 
-Come utente, voglio un'interfaccia web intuitiva per monitorare lo stato di salute dei sensori.
+As a developer, I want to ensure that all components except the processing replicas are considered reliable by design.
 
-Come sviluppatore, voglio poter avviare l'intero ambiente di monitoraggio con un singolo comando docker compose up.
+AREA 5 - Dashboard & UX
 
-3. Event Schema
-Ogni misurazione ricevuta dal broker seguirà questo schema:
+As an operator, I want a real-time dashboard to visualize detected seismic events as they happen.
 
-sensor_id: stringa identificativa univoca.
+As an analyst, I want to receive real-time updates via WebSocket or SSE to minimize latency in threat detection.
 
-timestamp: data e ora in formato UTC.
+As an analyst, I want to filter detected events by sensor ID or event type for better exploration.
 
-value: valore della vibrazione in mm/s.
+As a user, I want the frontend to be responsive and capable of displaying historical data trends.
+
+As a developer, I want the entire system to be deployable with a single docker compose up command.
+
+3. Standard Event Schema
+Incoming data from the simulator:
+
+sensor_id: Unique identifier of the seismic device.
+
+timestamp: UTC timestamp of the measurement.
+
+value: Ground vibration intensity measured in mm/s.
 
 4. Rule Model
-La classificazione avviene secondo le seguenti soglie di frequenza dominante (f):
+Events are classified based on the dominant frequency f:
 
 Earthquake: 0.5≤f<3.0 Hz.
 
-Explosion: 3.0≤f<8.0 Hz.
+Conventional Explosion: 3.0≤f<8.0 Hz.
 
-Nuclear: f≥8.0 Hz.
+Nuclear-like event: f≥8.0 Hz.
