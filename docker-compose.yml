@@ -1,14 +1,11 @@
+version: '3.8'
+
 services:
   simulator:
     image: seismic-signal-simulator:multiarch_v1
     ports:
       - "8080:8080"
     restart: always
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
 
   db:
     image: postgres:15
@@ -20,12 +17,13 @@ services:
       - "5432:5432"
 
   broker:
-    build: ./source/broker
+    build: ./source/broker # Assicurati che il percorso sia corretto
     depends_on:
-      simulator:
-        condition: service_healthy # Ora il broker aspetta che l'healthcheck del simulatore sia OK
+      - simulator
     environment:
-      SIMULATOR_URL: "http://simulator:8080"
+      - SIMULATOR_URL=http://simulator:8080
+    restart: always
+
   processor_1:
     build: ./source/processor
     depends_on:
@@ -37,3 +35,4 @@ services:
     depends_on:
       - broker
     restart: always
+
