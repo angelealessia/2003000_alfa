@@ -4,6 +4,11 @@ services:
     ports:
       - "8080:8080"
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   db:
     image: postgres:15
@@ -17,6 +22,7 @@ services:
   broker:
     build: ./source/broker
     depends_on:
-      - simulator
+      simulator:
+        condition: service_healthy # Ora il broker aspetta che l'healthcheck del simulatore sia OK
     environment:
       SIMULATOR_URL: "http://simulator:8080"
