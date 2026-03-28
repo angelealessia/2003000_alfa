@@ -4,8 +4,8 @@ import json
 import requests
 
 # URL del simulatore
-SIMULATOR_URL = "http://localhost:8080"
-WS_URL = "ws://localhost:8080"
+SIMULATOR_URL = "http://simulator:8080"
+WS_URL = "wws://simulator:8080"
 
 # Lista degli indirizzi delle tue repliche (es. processor_1, processor_2)
 # In Docker Compose userai i nomi dei servizi
