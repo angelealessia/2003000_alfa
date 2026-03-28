@@ -26,3 +26,14 @@ services:
         condition: service_healthy # Ora il broker aspetta che l'healthcheck del simulatore sia OK
     environment:
       SIMULATOR_URL: "http://simulator:8080"
+  processor_1:
+    build: ./source/processor
+    depends_on:
+      - broker
+    restart: always
+
+  processor_2:
+    build: ./source/processor
+    depends_on:
+      - broker
+    restart: always
