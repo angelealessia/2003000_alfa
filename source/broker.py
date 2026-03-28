@@ -2,6 +2,7 @@ import asyncio
 import websockets
 import json
 import requests
+import time
 
 # URL del simulatore
 SIMULATOR_URL = "http://simulator:8080"
@@ -29,9 +30,18 @@ async def handle_sensor(sensor_id):
                     pass # Se una replica è giù (crash), il broker continua! [cite: 107]
 
 async def main():
-    # Recupera la lista dei sensori all'avvio 
-    response = requests.get(f"{SIMULATOR_URL}/api/devices/")
-    devices = response.json()
+    # Prova a connettersi finché il simulatore non risponde
+    devices = None
+    while devices is None:
+        try:
+            response = requests.get(f"{SIMULATOR_URL}/api/devices/")
+            devices = response.json()
+        except Exception:
+            print("In attesa del simulatore...")
+            time.sleep(2) # Aspetta 2 secondi prima di riprovare
+    
+    tasks = [handle_sensor(d['id']) for d in devices]
+    await asyncio.gather(*tasks)
     
     # Crea un task per ogni sensore
     tasks = [handle_sensor(d['id']) for d in devices]
