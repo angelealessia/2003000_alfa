@@ -9,7 +9,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# Configurazione DB
+# Configurazione connessione Database
 def get_db_connection():
     return psycopg2.connect(
         host="db",
@@ -18,7 +18,7 @@ def get_db_connection():
         password="password"
     )
 
-# Inizializzazione Tabella con vincolo di unicità (Idempotenza) [cite: 98, 118]
+# Inizializzazione Tabella (Idempotenza garantita da UNIQUE)
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -30,7 +30,7 @@ def init_db():
         frequency FLOAT,
         event_type TEXT,
         value FLOAT,
-        UNIQUE(sensor_id, timestamp) -- Impedisce doppioni per lo stesso evento [cite: 98]
+        UNIQUE(sensor_id, timestamp)
     )
     """)
     conn.commit()
@@ -43,9 +43,9 @@ sensor_data = {}
 WINDOW_SIZE = 100 
 
 def classify_event(frequency):
-    if 0.5 <= frequency < 3.0: return "Earthquake" [cite: 90]
-    elif 3.0 <= frequency < 8.0: return "Conventional Explosion" [cite: 91]
-    elif frequency >= 8.0: return "Nuclear-like Event" [cite: 92]
+    if 0.5 <= frequency < 3.0: return "Earthquake"
+    elif 3.0 <= frequency < 8.0: return "Conventional Explosion"
+    elif frequency >= 8.0: return "Nuclear-like Event"
     return "Background Noise"
 
 @app.route('/ingest', methods=['POST'])
@@ -71,7 +71,7 @@ def ingest():
             
             event = classify_event(dom_freq)
             if event != "Background Noise":
-                # Inserimento con gestione conflitti (Idempotenza) [cite: 141]
+                print(f"!!! RILEVATO: {event} su {s_id} (Freq: {dom_freq:.2f} Hz) !!!")
                 conn = get_db_connection()
                 cur = conn.cursor()
                 try:
@@ -82,7 +82,7 @@ def ingest():
                     """, (s_id, ts, float(dom_freq), event, float(val)))
                     conn.commit()
                 except Exception as e:
-                    print(f"Errore DB: {e}")
+                    print(f"Errore inserimento DB: {e}")
                 finally:
                     cur.close()
                     conn.close()
@@ -93,7 +93,6 @@ def ingest():
 
 @app.route('/events', methods=['GET'])
 def list_events():
-    """Endpoint per il Gateway"""
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT sensor_id, timestamp, frequency, event_type, value FROM events ORDER BY timestamp DESC LIMIT 50")
@@ -108,14 +107,17 @@ def health():
 
 def listen_control():
     try:
-        response = requests.get("http://simulator:8080/api/control", stream=True) [cite: 56]
+        response = requests.get("http://simulator:8080/api/control", stream=True)
         for line in response.iter_lines():
             if line:
-                msg = json.loads(line.decode('utf-8').replace('data: ', ''))
-                if msg.get("command") == "SHUTDOWN": [cite: 60]
-                    os._exit(0) [cite: 61]
-    except: pass
+                decoded_line = line.decode('utf-8').replace('data: ', '')
+                msg = json.loads(decoded_line)
+                if msg.get("command") == "SHUTDOWN":
+                    print("Comando SHUTDOWN ricevuto! Chiusura...")
+                    os._exit(0)
+    except Exception as e:
+        print(f"Errore SSE: {e}")
 
 if __name__ == "__main__":
     threading.Thread(target=listen_control, daemon=True).start()
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=False)
