@@ -36,3 +36,9 @@ services:
       - broker
     restart: always
 
+frontend:
+    build: ./source/frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - gateway # La dashboard parlerà con il Gateway, non direttamente con le repliche
