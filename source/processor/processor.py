@@ -6,6 +6,34 @@ from flask import Flask, request, jsonify # Aggiunto jsonify
 import threading
 import os
 
+import psycopg2
+from datetime import datetime
+
+# connessione database postgres (nome servizio docker = db)
+conn = psycopg2.connect(
+    host="db",
+    database="seismic_hq",
+    user="admin",
+    password="password"
+)
+
+cursor = conn.cursor()
+
+# crea tabella se non esiste
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS events (
+
+    id SERIAL PRIMARY KEY,
+    sensor_id TEXT,
+    timestamp TIMESTAMP,
+    frequency FLOAT,
+    event_type TEXT,
+    value FLOAT
+)
+""")
+
+conn.commit()
+
 app = Flask(__name__)
 
 # Memoria temporanea per i dati dei sensori (Sliding Window) [cite: 85]
@@ -59,7 +87,21 @@ def ingest():
             if event != "Background Noise":
                 # Questo log ti conferma che i dati stanno fluendo!
                 print(f"!!! RILEVATO: {event} su {s_id} (Freq: {dom_freq:.2f} Hz) !!!")
-                # TODO: Domani aggiungeremo il salvataggio su Postgres [cite: 96, 98]
+                cursor.execute(
+                """
+                INSERT INTO events (sensor_id, timestamp, frequency, event_type, value)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    s_id,
+                    datetime.utcnow(),
+                    float(dom_freq),
+                    event,
+                    float(val)
+                )
+                )
+
+                conn.commit()
                 
         return jsonify({"status": "ok"}), 200
 
