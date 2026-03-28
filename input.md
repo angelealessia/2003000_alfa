@@ -87,12 +87,17 @@ Conventional Explosion: 3.0≤f<8.0 Hz.
 Nuclear-like event: f≥8.0 Hz.
 
 ## Standard Event Schema
-The Broker will forward messages to the processing replicas using the following JSON format:
-{
-  [cite_start]"sensor_id": "string",     // Unique ID from /api/devices/ [cite: 42]
-  [cite_start]"timestamp": "iso8601",    // UTC timestamp 
-  [cite_start]"value": "float",          // Velocity in mm/s 
-  "metadata": {
-    "sampling_rate": 20      // Default 20 Hz 
-  }
-}
+The system uses a unified JSON format for measurements forwarded by the Broker to the Processing replicas:
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `sensor_id` | String | [cite_start]Unique identifier of the source sensor  |
+| `timestamp` | String (ISO8601) | [cite_start]UTC time of the measurement [cite: 47] |
+| `value` | Float | [cite_start]Ground vibration intensity in mm/s [cite: 47] |
+| `unit` | String | [cite_start]Measurement unit (fixed to "mm/s") [cite: 47] |
+
+## Rule Model for Classification
+[cite_start]Events are classified based on the dominant frequency ($f$) identified via FFT[cite: 86, 89]:
+* [cite_start]**Earthquake**: $0.5 \le f < 3.0$ Hz [cite: 90]
+* [cite_start]**Conventional Explosion**: $3.0 \le f < 8.0$ Hz [cite: 91]
+* [cite_start]**Nuclear-like event**: $f \ge 8.0$ Hz [cite: 92]
