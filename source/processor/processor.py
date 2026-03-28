@@ -1,133 +1,121 @@
-import asyncio
 import json
 import numpy as np
 import requests
-from flask import Flask, request, jsonify # Aggiunto jsonify
+from flask import Flask, request, jsonify
 import threading
 import os
-
 import psycopg2
 from datetime import datetime
 
-# connessione database postgres (nome servizio docker = db)
-conn = psycopg2.connect(
-    host="db",
-    database="seismic_hq",
-    user="admin",
-    password="password"
-)
-
-cursor = conn.cursor()
-
-# crea tabella se non esiste
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS events (
-
-    id SERIAL PRIMARY KEY,
-    sensor_id TEXT,
-    timestamp TIMESTAMP,
-    frequency FLOAT,
-    event_type TEXT,
-    value FLOAT
-)
-""")
-
-conn.commit()
-
 app = Flask(__name__)
 
-# Memoria temporanea per i dati dei sensori (Sliding Window) [cite: 85]
+# Configurazione DB
+def get_db_connection():
+    return psycopg2.connect(
+        host="db",
+        database="seismic_hq",
+        user="admin",
+        password="password"
+    )
+
+# Inizializzazione Tabella con vincolo di unicità (Idempotenza) [cite: 98, 118]
+def init_db():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS events (
+        id SERIAL PRIMARY KEY,
+        sensor_id TEXT,
+        timestamp TIMESTAMP,
+        frequency FLOAT,
+        event_type TEXT,
+        value FLOAT,
+        UNIQUE(sensor_id, timestamp) -- Impedisce doppioni per lo stesso evento [cite: 98]
+    )
+    """)
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+init_db()
+
 sensor_data = {} 
 WINDOW_SIZE = 100 
 
 def classify_event(frequency):
-    # Soglie fittizie richieste dall'esame [cite: 90, 91, 92]
-    if 0.5 <= frequency < 3.0:
-        return "Earthquake"
-    elif 3.0 <= frequency < 8.0:
-        return "Conventional Explosion"
-    elif frequency >= 8.0:
-        return "Nuclear-like Event"
+    if 0.5 <= frequency < 3.0: return "Earthquake" [cite: 90]
+    elif 3.0 <= frequency < 8.0: return "Conventional Explosion" [cite: 91]
+    elif frequency >= 8.0: return "Nuclear-like Event" [cite: 92]
     return "Background Noise"
 
 @app.route('/ingest', methods=['POST'])
 def ingest():
-    # RISOLUZIONE ERRORE 400: 'force=True' legge il JSON anche se l'header è mancante
     content = request.get_json(force=True, silent=True)
-    
-    if content is None:
-        return jsonify({"error": "Invalid JSON"}), 400
+    if not content: return jsonify({"error": "Invalid JSON"}), 400
 
     try:
         s_id = content['sensor_id']
-        # Estraiamo il valore numerico dalla struttura del simulatore 
         val = content['data']['value']
+        ts = content['data'].get('timestamp', datetime.utcnow().isoformat())
         
-        if s_id not in sensor_data:
-            sensor_data[s_id] = []
-        
+        if s_id not in sensor_data: sensor_data[s_id] = []
         sensor_data[s_id].append(val)
         
-        # Gestione Sliding Window [cite: 85]
-        if len(sensor_data[s_id]) > WINDOW_SIZE:
-            sensor_data[s_id].pop(0)
+        if len(sensor_data[s_id]) > WINDOW_SIZE: sensor_data[s_id].pop(0)
 
-        # Se abbiamo abbastanza dati, calcoliamo la FFT [cite: 86, 87]
         if len(sensor_data[s_id]) == WINDOW_SIZE:
             window = np.array(sensor_data[s_id])
-            # Calcolo FFT [cite: 86]
             fft_vals = np.abs(np.fft.rfft(window))
-            # d=0.05 perché il campionamento di default è 20Hz (1/20 = 0.05s) 
             freqs = np.fft.rfftfreq(WINDOW_SIZE, d=0.05) 
-            
-            idx_max = np.argmax(fft_vals[1:]) + 1 
-            dom_freq = freqs[idx_max]
+            dom_freq = freqs[np.argmax(fft_vals[1:]) + 1]
             
             event = classify_event(dom_freq)
             if event != "Background Noise":
-                # Questo log ti conferma che i dati stanno fluendo!
-                print(f"!!! RILEVATO: {event} su {s_id} (Freq: {dom_freq:.2f} Hz) !!!")
-                cursor.execute(
-                """
-                INSERT INTO events (sensor_id, timestamp, frequency, event_type, value)
-                VALUES (%s, %s, %s, %s, %s)
-                """,
-                (
-                    s_id,
-                    datetime.utcnow(),
-                    float(dom_freq),
-                    event,
-                    float(val)
-                )
-                )
-
-                conn.commit()
+                # Inserimento con gestione conflitti (Idempotenza) [cite: 141]
+                conn = get_db_connection()
+                cur = conn.cursor()
+                try:
+                    cur.execute("""
+                        INSERT INTO events (sensor_id, timestamp, frequency, event_type, value)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (sensor_id, timestamp) DO NOTHING
+                    """, (s_id, ts, float(dom_freq), event, float(val)))
+                    conn.commit()
+                except Exception as e:
+                    print(f"Errore DB: {e}")
+                finally:
+                    cur.close()
+                    conn.close()
                 
         return jsonify({"status": "ok"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
-    except (KeyError, TypeError) as e:
-        return jsonify({"error": f"Missing or malformed data: {str(e)}"}), 400
+@app.route('/events', methods=['GET'])
+def list_events():
+    """Endpoint per il Gateway"""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT sensor_id, timestamp, frequency, event_type, value FROM events ORDER BY timestamp DESC LIMIT 50")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return jsonify([{"sensor_id": r[0], "timestamp": r[1].isoformat(), "frequency": r[2], "type": r[3], "value": r[4]} for r in rows])
 
-# Funzione per gestire lo SHUTDOWN forzato via SSE [cite: 53, 54, 61]
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "online"}), 200
+
 def listen_control():
-    print("In ascolto sul canale di controllo SSE...")
     try:
-        # La replica si collega al flusso di controllo del simulatore [cite: 56]
-        response = requests.get("http://simulator:8080/api/control", stream=True)
+        response = requests.get("http://simulator:8080/api/control", stream=True) [cite: 56]
         for line in response.iter_lines():
             if line:
-                decoded_line = line.decode('utf-8')
-                if decoded_line.startswith('data: '):
-                    msg_content = decoded_line.replace('data: ', '')
-                    msg = json.loads(msg_content)
-                    if msg.get("command") == "SHUTDOWN":
-                        print("!!! RICEVUTO COMANDO SHUTDOWN: Chiusura immediata !!!")
-                        os._exit(0) # Spegnimento forzato richiesto [cite: 61]
-    except Exception as e:
-        print(f"Errore connessione controllo: {e}")
+                msg = json.loads(line.decode('utf-8').replace('data: ', ''))
+                if msg.get("command") == "SHUTDOWN": [cite: 60]
+                    os._exit(0) [cite: 61]
+    except: pass
 
 if __name__ == "__main__":
-    # Avvia lo shutdown listener in un thread separato [cite: 53]
     threading.Thread(target=listen_control, daemon=True).start()
-    
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=5000)
