@@ -85,3 +85,14 @@ Earthquake: 0.5≤f<3.0 Hz.
 Conventional Explosion: 3.0≤f<8.0 Hz.
 
 Nuclear-like event: f≥8.0 Hz.
+
+## Standard Event Schema
+The Broker will forward messages to the processing replicas using the following JSON format:
+{
+  [cite_start]"sensor_id": "string",     // Unique ID from /api/devices/ [cite: 42]
+  [cite_start]"timestamp": "iso8601",    // UTC timestamp 
+  [cite_start]"value": "float",          // Velocity in mm/s 
+  "metadata": {
+    "sampling_rate": 20      // Default 20 Hz 
+  }
+}
