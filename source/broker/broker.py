@@ -26,14 +26,16 @@ async def handle_sensor(sensor_id):
             # Nel file broker/broker.py
             for replica_url in REPLICAS:
                 try:
-                    payload = {"sensor_id": sensor_id, "data": measurement}
-                    # Usiamo 'json=' per impostare automaticamente il Content-Type: application/json
-                    response = requests.post(replica_url, json=payload, timeout=2)
-        
-                    if response.status_code != 200:
-                        print(f"Errore 400 ricevuto! Dettagli: {response.text}")
+        # Forziamo l'header Host a localhost per "ingannare" Flask [cite: 77]
+                    headers = {'Host': 'localhost'}
+                    requests.post(
+                        replica_url, 
+                        json={"sensor_id": sensor_id, "data": measurement}, 
+                        headers=headers, 
+                        timeout=1
+                    )
                 except Exception as e:
-                    print(f"Errore di rete: {e}")
+                    print(f"Errore invio a {replica_url}: {e}")
 
 async def main():
     # Prova a connettersi finché il simulatore non risponde
