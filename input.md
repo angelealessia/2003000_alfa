@@ -3,70 +3,90 @@ The year is 2038. This system is a distributed, fault-tolerant seismic analysis 
 
 
 2. User Stories
-AREA 1 - Data Ingestion & Distribution (Broker)
+AREA 1 — Data ingestion & broker
 
-As a system operator, I want the Broker to connect to sensor WebSockets so that it can capture incoming real-time measurements.
+US1
+As a system, I want the Broker to connect to the simulator WebSocket streams so that real-time seismic measurements can be captured.
 
+US2
+As a system, I want the Broker to distribute each incoming measurement to multiple processing replicas using a broadcast model.
 
-As a system administrator, I want the Broker to redistribute measurements to multiple processing replicas simultaneously using a broadcast model.
+US3
+As a developer, I want the Broker to act only as a routing component without performing data processing.
 
+US4
+As a system, I want the Broker to continuously receive sensor data so that the analysis pipeline is always active.
 
-As a security officer, I want the Broker to be hosted in a neutral region, performing only lightweight routing without data processing.
+US5
+As a developer, I want the Broker to support multiple connected replicas so that the system can scale horizontally.
 
-As a developer, I want the Broker to discover available sensors via the /api/devices/ endpoint.
+AREA 2 — Processing & frequency analysis
 
-As a system, I want to receive measurements at a default frequency of 20 Hz to ensure high-fidelity signal analysis.
+US6
+As a system, I want each processing replica to maintain a sliding window of recent sensor samples in memory.
 
-AREA 2 - Processing & Analysis (Replicated Services)
+US7
+As a system, I want each replica to apply FFT (Fast Fourier Transform) to identify the dominant frequency of the signal.
 
-As a military analyst, I want the system to apply Discrete Fourier Transform (DFT) or FFT to identify dominant frequency components.
+US8
+As a commander, I want signals with dominant frequency between 0.5 and 3 Hz to be classified as an earthquake.
 
-As a developer, I want each replica to maintain an in-memory sliding window of recent samples for each sensor.
+US9
+As a commander, I want signals with dominant frequency between 3 and 8 Hz to be classified as an explosion.
 
-As a commander, I want events with a dominant frequency between 0.5 and 3.0 Hz to be classified as an "Earthquake".
+US10
+As a commander, I want signals with dominant frequency greater or equal to 8 Hz to be classified as a nuclear-like event.
 
-As a commander, I want events with a dominant frequency between 3.0 and 8.0 Hz to be classified as a "Conventional Explosion".
+US11
+As a system, I want multiple replicas of the processing service so that the system is scalable and fault tolerant.
 
-As a commander, I want events with a dominant frequency ≥ 8.0 Hz to be classified as a "Nuclear-like event".
+US12
+As a system, I want each replica to process incoming data independently.
 
-As a developer, I want each processing replica to listen to the SSE control stream to receive system commands.
+US13
+As a developer, I want the processing service to work in real time so that events are detected quickly.
 
-As a system, I want a replica to terminate immediately (forced shutdown) upon receiving a {"command":"SHUTDOWN"} message.
+AREA 3 — Persistence & data integrity
 
-AREA 3 - Persistence & Data Integrity
+US14
+As a system, I want detected events to be stored in a shared database so that historical data can be preserved.
 
-As a data scientist, I want detected events to be stored in a shared relational or NoSQL database for long-term storage.
+US15
+As a system, I want the persistence layer to prevent duplicate event storage when multiple replicas process similar inputs.
 
-As a system administrator, I want the persistence layer to handle requests idempotently to prevent duplicate event storage from different replicas.
-+1
+US16
+As an analyst, I want each stored event to include timestamp, sensor ID, dominant frequency, and event type.
 
-As a user, I want each persisted event to include a UTC timestamp, value in mm/s, and the sensor ID.
-+1
+US17
+As an analyst, I want to retrieve stored events from the database.
 
-As an analyst, I want to be able to query historical seismic events stored in the database.
+US18
+As a developer, I want the database to be shared between replicas so that all events are stored in one place.
 
-AREA 4 - Fault Tolerance & Gateway
+AREA 4 — Fault tolerance
 
-As a frontend user, I want to access the backend through a single entry point (Gateway) that routes requests to available replicas.
-+1
+US19
+As a system, I want processing replicas to be able to shut down when receiving a shutdown command from the control stream.
 
-As a system administrator, I want the Gateway to use health checks to detect and exclude failed replicas automatically.
+US20
+As a commander, I want the system to continue operating even if one or more replicas fail.
 
-As a commander, I want the system to remain operational even if one or more processing replicas fail abruptly.
+US21
+As a system administrator, I want the architecture to avoid a single point of failure in the processing layer.
 
-As a developer, I want to ensure that all components except the processing replicas are considered reliable by design.
+AREA 5 — Dashboard & visualization
 
-AREA 5 - Dashboard & UX
+US22
+As an operator, I want a dashboard to visualize detected seismic events in real time.
 
-As an operator, I want a real-time dashboard to visualize detected seismic events as they happen.
+US23
+As an analyst, I want to see historical events stored in the database.
 
-As an analyst, I want to receive real-time updates via WebSocket or SSE to minimize latency in threat detection.
+US24
+As a user, I want to filter events by event type so that I can focus on specific threats.
 
-As an analyst, I want to filter detected events by sensor ID or event type for better exploration.
-
-As a user, I want the frontend to be responsive and capable of displaying historical data trends.
-
-As a developer, I want the entire system to be deployable with a single docker compose up command.
+US25
+As a user, I want the dashboard to update automatically when new events are detected.
 
 3. Standard Event Schema
 Incoming data from the simulator:
