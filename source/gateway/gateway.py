@@ -7,11 +7,11 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Nomi dei servizi definiti nel docker-compose
 PROCESSORS = ["http://processor_1:5000", "http://processor_2:5000"]
 
 @app.get("/health")
@@ -27,7 +27,6 @@ def system_health():
 
 @app.get("/events")
 def get_events():
-    # Load balancing rudimentale / Fault Tolerance [cite: 104, 107]
     for p in PROCESSORS:
         try:
             r = requests.get(f"{p}/events", timeout=1)
@@ -35,7 +34,7 @@ def get_events():
                 return r.json()
         except:
             continue
-    return {"error": "No processors available"}, 503
+    return {"error": "Nessun processor disponibile"}, 503
 
 @app.get("/")
 def root():
