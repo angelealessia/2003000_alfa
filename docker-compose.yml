@@ -36,6 +36,16 @@ services:
       - broker
     restart: always
 
+  gateway:
+    build: ./source/gateway
+    ports:
+      - "8000:8000"
+    depends_on:
+      - processor_1
+      - processor_2
+      - db
+    restart: always
+
 frontend:
     build: ./source/frontend
     ports:
