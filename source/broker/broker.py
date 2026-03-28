@@ -22,12 +22,17 @@ async def handle_sensor(sensor_id):
             measurement = json.loads(data) 
             
             # 2. Fan-out: lo manda a tutte le repliche [cite: 80]
+            # Nel file broker.py, dentro handle_sensor:
             for replica_url in REPLICAS:
                 try:
-                    # Invio asincrono o semplice post
-                    requests.post(replica_url, json={"sensor_id": sensor_id, "data": measurement})
+                    # Aggiungiamo esplicitamente l'header JSON
+                    requests.post(
+                        replica_url, 
+                        json={"sensor_id": sensor_id, "data": measurement},
+                        headers={'Content-Type': 'application/json'} # <--- Fondamentale!
+                    )
                 except:
-                    pass # Se una replica è giù (crash), il broker continua! [cite: 107]
+                    pass
 
 async def main():
     # Prova a connettersi finché il simulatore non risponde
