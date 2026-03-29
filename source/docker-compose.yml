@@ -76,7 +76,7 @@ services:
       REPLICA_ID:     processing-3
       SAMPLING_RATE_HZ: "20"
       WINDOW_SECONDS:   "10"
-      EVENT_COOLDOWN_SECONDS: "15""
+      EVENT_COOLDOWN_SECONDS: "15"
     depends_on:
       postgres:
         condition: service_healthy
