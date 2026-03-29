@@ -82,7 +82,7 @@ async def event_poller():
                 try:
                     resp = await client.get(
                         f"{replica}/events",
-                        params={"limit": 20}
+                        params={"limit": 100}
                     )
                     if resp.status_code == 200:
                         events = resp.json()
