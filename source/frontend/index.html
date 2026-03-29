@@ -500,7 +500,7 @@ function addEvents(newEvents) {
       if (e.event_type === 'NUCLEAR') triggerNuclearAlert();
     }
   }
-  allEvents = allEvents.slice(0, 500); // keep last 500 in memory
+  allEvents = allEvents.slice(0, 2000); // keep last 2000 in memory
 
   document.getElementById('cnt-total').textContent = allEvents.length;
   document.getElementById('cnt-eq').textContent    = counts.EARTHQUAKE || 0;
@@ -604,7 +604,7 @@ function connectSSE() {
 // ── Initial load ──────────────────────────────────────────────────────────────
 async function initialLoad() {
   try {
-    const resp = await fetch(`${GATEWAY}/api/events?limit=50`);
+    const resp = await fetch(`${GATEWAY}/api/events?limit=200`);
     const data = await resp.json();
     addEvents(data);
     log(`Loaded ${data.length} historical events`);
