@@ -169,17 +169,21 @@ async def event_stream():
             while True:
                 try:
                     events = await asyncio.wait_for(queue.get(), timeout=15.0)
-                    for event in events:
-                        # Convert datetime objects to strings for JSON
-                        event_copy = {
+                    # FIX: manda il batch come array JSON invece che evento per evento
+                    # così il frontend riceve Array.isArray(data) === true
+                    events_serialized = [
+                        {
                             k: str(v) if hasattr(v, 'isoformat') else v
-                            for k, v in event.items()
+                            for k, v in e.items()
                         }
-                        yield f"data: {json.dumps(event_copy)}\n\n"
+                        for e in events
+                    ]
+                    yield f"data: {json.dumps(events_serialized)}\n\n"
                 except asyncio.TimeoutError:
                     yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
         finally:
-            sse_subscribers.remove(queue)
+            if queue in sse_subscribers:
+                sse_subscribers.remove(queue)
 
     return StreamingResponse(
         generate(),
