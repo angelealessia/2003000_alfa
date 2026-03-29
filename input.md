@@ -1,123 +1,118 @@
-1. System Overview
-The year is 2038. This system is a distributed, fault-tolerant seismic analysis platform designed to monitor ground vibrations in a high-tension geopolitical landscape. The platform ingests real-time data from geographically distributed sensors , redistributes it across replicated processing services , performs frequency-domain analysis (FFT) , and persists detected events in a duplicate-safe manner. A real-time dashboard provides the command center with critical intelligence to initiate defensive protocols.
+# input.md — Seismic Intelligence Platform
 
+## System Overview
 
-2. User Stories
-AREA 1 — Data ingestion & broker
+A fault-tolerant, distributed seismic analysis platform designed to provide
+continuous intelligence to a command center even under partial system failure.
 
-US1
-As a system, I want the Broker to connect to the simulator WebSocket streams so that real-time seismic measurements can be captured.
+The system ingests real-time seismic sensor data, performs frequency-domain
+analysis (FFT) to classify events, persists results in a shared database,
+and exposes a real-time dashboard to operators.
 
-US2
-As a system, I want the Broker to distribute each incoming measurement to multiple processing replicas using a broadcast model.
+---
 
-US3
-As a developer, I want the Broker to act only as a routing component without performing data processing.
+## Architecture Summary
 
-US4
-As a system, I want the Broker to continuously receive sensor data so that the analysis pipeline is always active.
+```
+[Seismic Simulator]
+       │  WebSocket (per sensor)
+       ▼
+    [BROKER]           ← neutral region, fan-out only, no processing
+    /   |   \
+   ▼    ▼    ▼
+[P-1][P-2][P-3]       ← processing replicas (subject to failure)
+    \   |   /
+       ▼
+  [PostgreSQL]         ← shared persistence, deduplication via UNIQUE
+       │
+   [GATEWAY]           ← health-check routing, SSE to frontend
+       │
+  [FRONTEND]           ← real-time dashboard
+```
 
-US5
-As a developer, I want the Broker to support multiple connected replicas so that the system can scale horizontally.
-
-AREA 2 — Processing & frequency analysis
-
-US6
-As a system, I want each processing replica to maintain a sliding window of recent sensor samples in memory.
-
-US7
-As a system, I want each replica to apply FFT (Fast Fourier Transform) to identify the dominant frequency of the signal.
-
-US8
-As a commander, I want signals with dominant frequency between 0.5 and 3 Hz to be classified as an earthquake.
-
-US9
-As a commander, I want signals with dominant frequency between 3 and 8 Hz to be classified as an explosion.
-
-US10
-As a commander, I want signals with dominant frequency greater or equal to 8 Hz to be classified as a nuclear-like event.
-
-US11
-As a system, I want multiple replicas of the processing service so that the system is scalable and fault tolerant.
-
-US12
-As a system, I want each replica to process incoming data independently.
-
-US13
-As a developer, I want the processing service to work in real time so that events are detected quickly.
-
-AREA 3 — Persistence & data integrity
-
-US14
-As a system, I want detected events to be stored in a shared database so that historical data can be preserved.
-
-US15
-As a system, I want the persistence layer to prevent duplicate event storage when multiple replicas process similar inputs.
-
-US16
-As an analyst, I want each stored event to include timestamp, sensor ID, dominant frequency, and event type.
-
-US17
-As an analyst, I want to retrieve stored events from the database.
-
-US18
-As a developer, I want the database to be shared between replicas so that all events are stored in one place.
-
-AREA 4 — Fault tolerance
-
-US19
-As a system, I want processing replicas to be able to shut down when receiving a shutdown command from the control stream.
-
-US20
-As a commander, I want the system to continue operating even if one or more replicas fail.
-
-US21
-As a system administrator, I want the architecture to avoid a single point of failure in the processing layer.
-
-AREA 5 — Dashboard & visualization
-
-US22
-As an operator, I want a dashboard to visualize detected seismic events in real time.
-
-US23
-As an analyst, I want to see historical events stored in the database.
-
-US24
-As a user, I want to filter events by event type so that I can focus on specific threats.
-
-US25
-As a user, I want the dashboard to update automatically when new events are detected.
-
-3. Standard Event Schema
-Incoming data from the simulator:
-
-sensor_id: Unique identifier of the seismic device.
-
-timestamp: UTC timestamp of the measurement.
-
-value: Ground vibration intensity measured in mm/s.
-
-4. Rule Model
-Events are classified based on the dominant frequency f:
-
-Earthquake: 0.5≤f<3.0 Hz.
-
-Conventional Explosion: 3.0≤f<8.0 Hz.
-
-Nuclear-like event: f≥8.0 Hz.
+---
 
 ## Standard Event Schema
-The system uses a unified JSON format for measurements forwarded by the Broker to the Processing replicas:
 
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `sensor_id` | String | [cite_start]Unique identifier of the source sensor  |
-| `timestamp` | String (ISO8601) | [cite_start]UTC time of the measurement [cite: 47] |
-| `value` | Float | [cite_start]Ground vibration intensity in mm/s [cite: 47] |
-| `unit` | String | [cite_start]Measurement unit (fixed to "mm/s") [cite: 47] |
+Events detected by a processing replica are stored in the `events` table:
 
-## Rule Model for Classification
-[cite_start]Events are classified based on the dominant frequency ($f$) identified via FFT[cite: 86, 89]:
-* [cite_start]**Earthquake**: $0.5 \le f < 3.0$ Hz [cite: 90]
-* [cite_start]**Conventional Explosion**: $3.0 \le f < 8.0$ Hz [cite: 91]
-* [cite_start]**Nuclear-like event**: $f \ge 8.0$ Hz [cite: 92]
+```json
+{
+  "id":            1,
+  "sensor_id":     "sensor-abc-123",
+  "event_type":    "EARTHQUAKE",
+  "dominant_freq": 1.42,
+  "detected_at":   "2038-03-15T14:22:00Z",
+  "replica_id":    "processing-1",
+  "created_at":    "2038-03-15T14:22:00.123Z"
+}
+```
+
+### Event Classification Rules
+
+| Event Type  | Frequency Range         |
+|-------------|------------------------|
+| EARTHQUAKE  | 0.5 Hz ≤ f < 3.0 Hz   |
+| EXPLOSION   | 3.0 Hz ≤ f < 8.0 Hz   |
+| NUCLEAR     | f ≥ 8.0 Hz             |
+| (ignored)   | f < 0.5 Hz             |
+
+---
+
+## User Stories
+
+### Epic 1 — Data Ingestion
+
+| ID  | Story | Priority |
+|-----|-------|----------|
+| US01 | As the system, I want to discover available sensors at startup so I can subscribe to all active streams. | HIGH |
+| US02 | As the system, I want the broker to maintain persistent WebSocket connections to sensors and reconnect on failure. | HIGH |
+| US03 | As the system, I want each sensor measurement to be forwarded to all active processing replicas within 500ms. | HIGH |
+| US04 | As the system, I want the broker to not perform any data processing, only routing. | HIGH |
+| US05 | As the system, I want the broker to recover gracefully if a replica is temporarily unavailable. | MEDIUM |
+
+### Epic 2 — Processing & Analysis
+
+| ID  | Story | Priority |
+|-----|-------|----------|
+| US06 | As the system, I want each replica to maintain an in-memory sliding window of the last N samples per sensor. | HIGH |
+| US07 | As the system, I want each replica to apply FFT to the sliding window when full to extract frequency components. | HIGH |
+| US08 | As the system, I want each replica to identify the dominant frequency component from FFT output. | HIGH |
+| US09 | As the system, I want to classify detected events into EARTHQUAKE, EXPLOSION, or NUCLEAR based on dominant frequency. | HIGH |
+| US10 | As the system, I want events below 0.5 Hz to be ignored as background noise. | MEDIUM |
+
+### Epic 3 — Fault Tolerance
+
+| ID  | Story | Priority |
+|-----|-------|----------|
+| US11 | As the system, I want each replica to connect to the simulator control stream (SSE) and receive shutdown commands. | HIGH |
+| US12 | As the system, I want a replica to terminate itself immediately upon receiving a SHUTDOWN command. | HIGH |
+| US13 | As the system, I want terminated replicas to restart automatically via Docker's restart policy. | HIGH |
+| US14 | As the gateway, I want to perform periodic health checks on all replicas and mark unavailable ones as offline. | HIGH |
+| US15 | As the gateway, I want to route requests only to healthy replicas (round-robin over healthy set). | HIGH |
+| US16 | As the system, I want overall operation to continue uninterrupted when up to N-1 replicas have failed. | HIGH |
+
+### Epic 4 — Persistence
+
+| ID  | Story | Priority |
+|-----|-------|----------|
+| US17 | As the system, I want detected events to be stored in a shared PostgreSQL database. | HIGH |
+| US18 | As the system, I want duplicate events (same sensor_id + detected_at) to be silently ignored (idempotent insert). | HIGH |
+| US19 | As an operator, I want to query historical events filtered by sensor or event type. | MEDIUM |
+| US20 | As the system, I want the database schema to be created automatically at startup. | MEDIUM |
+
+### Epic 5 — Dashboard & API
+
+| ID  | Story | Priority |
+|-----|-------|----------|
+| US21 | As an operator, I want to see a real-time feed of detected events on the dashboard. | HIGH |
+| US22 | As an operator, I want events to appear on the dashboard within seconds of detection. | HIGH |
+| US23 | As an operator, I want to filter events by type (EARTHQUAKE / EXPLOSION / NUCLEAR). | MEDIUM |
+| US24 | As an operator, I want to see a frequency distribution chart of the last 50 events. | MEDIUM |
+| US25 | As an operator, I want to see the live status (online/offline) of all processing replicas. | MEDIUM |
+
+---
+
+## LoFi Mockups
+
+See `/booklets/mockups.md` for wireframe descriptions.

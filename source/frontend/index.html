@@ -1,78 +1,623 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>STRATCOM | Seismic Monitor 2038</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @keyframes pulse-red {
-            0%, 100% { box-shadow: 0 0 15px rgba(220, 38, 38, 0.5); }
-            50% { box-shadow: 0 0 30px rgba(220, 38, 38, 0.8); }
-        }
-        .nuclear-alert { animation: pulse-red 1.5s infinite; }
-        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SEISMIC COMMAND — Intelligence Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #030a06;
+      --surface:   #071410;
+      --border:    #0f3d2a;
+      --green:     #00ff88;
+      --green-dim: #00994d;
+      --amber:     #ffb300;
+      --red:       #ff3333;
+      --blue:      #00ccff;
+      --text:      #a0f0c0;
+      --muted:     #3a6b50;
+      --eq:        #00ff88;
+      --ex:        #ffb300;
+      --nu:        #ff3333;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'IBM Plex Mono', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Scanline overlay */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,255,136,0.015) 2px,
+        rgba(0,255,136,0.015) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 2rem;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(90deg, #000d08, #071410);
+    }
+
+    .logo {
+      font-family: 'Orbitron', monospace;
+      font-size: 1.1rem;
+      font-weight: 900;
+      letter-spacing: 0.2em;
+      color: var(--green);
+      text-shadow: 0 0 20px rgba(0,255,136,0.5);
+    }
+
+    .logo span { color: var(--muted); font-weight: 400; }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+
+    .clock {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 1rem;
+      color: var(--green);
+    }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 2s infinite;
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ── Layout ── */
+    .main {
+      display: grid;
+      grid-template-columns: 280px 1fr 260px;
+      grid-template-rows: auto 1fr;
+      gap: 1px;
+      height: calc(100vh - 57px);
+      background: var(--border);
+    }
+
+    .panel {
+      background: var(--surface);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-header {
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-family: 'Orbitron', monospace;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      color: var(--green-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-body { flex: 1; overflow-y: auto; padding: 0.75rem; }
+    .panel-body::-webkit-scrollbar { width: 3px; }
+    .panel-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+    /* ── Replica status ── */
+    .replica-card {
+      border: 1px solid var(--border);
+      padding: 0.6rem 0.75rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.72rem;
+      transition: border-color 0.3s;
+    }
+
+    .replica-card.online  { border-color: var(--green-dim); }
+    .replica-card.offline { border-color: var(--red); opacity: 0.6; }
+
+    .replica-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .online  .replica-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .offline .replica-dot { background: var(--red); }
+
+    .replica-name { flex: 1; color: var(--text); letter-spacing: 0.05em; }
+    .replica-status { font-size: 0.6rem; color: var(--muted); }
+
+    /* ── Stats ── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .stat-box {
+      border: 1px solid var(--border);
+      padding: 0.75rem;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-family: 'Orbitron', monospace;
+      font-size: 1.6rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      margin-top: 0.3rem;
+    }
+
+    .stat-eq  .stat-value { color: var(--eq); }
+    .stat-ex  .stat-value { color: var(--ex); }
+    .stat-nu  .stat-value { color: var(--nu); }
+    .stat-tot .stat-value { color: var(--blue); }
+
+    /* ── Event feed ── */
+    .event-item {
+      border-left: 3px solid var(--border);
+      padding: 0.5rem 0.75rem;
+      margin-bottom: 0.4rem;
+      font-size: 0.7rem;
+      animation: slideIn 0.3s ease;
+      background: rgba(0,255,136,0.02);
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(-10px); opacity: 0; }
+      to   { transform: translateX(0);     opacity: 1; }
+    }
+
+    .event-item.EARTHQUAKE { border-color: var(--eq);  background: rgba(0,255,136,0.04); }
+    .event-item.EXPLOSION  { border-color: var(--ex);  background: rgba(255,179,0,0.04); }
+    .event-item.NUCLEAR    { border-color: var(--nu);  background: rgba(255,51,51,0.06); }
+
+    .event-type {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      margin-bottom: 0.2rem;
+    }
+
+    .EARTHQUAKE .event-type { color: var(--eq); }
+    .EXPLOSION  .event-type { color: var(--ex); }
+    .NUCLEAR    .event-type { color: var(--nu); }
+
+    .event-meta { color: var(--muted); font-size: 0.65rem; line-height: 1.6; }
+    .event-meta strong { color: var(--text); }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+      display: flex;
+      gap: 0.4rem;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 0.25rem 0.6rem;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.62rem;
+      letter-spacing: 0.1em;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .filter-btn:hover, .filter-btn.active {
+      border-color: var(--green-dim);
+      color: var(--green);
+      background: rgba(0,255,136,0.05);
+    }
+
+    .filter-btn.active-eq { border-color: var(--eq); color: var(--eq); background: rgba(0,255,136,0.05); }
+    .filter-btn.active-ex { border-color: var(--ex); color: var(--ex); background: rgba(255,179,0,0.05); }
+    .filter-btn.active-nu { border-color: var(--nu); color: var(--nu); background: rgba(255,51,51,0.05); }
+
+    /* ── Chart area ── */
+    .chart-area {
+      grid-column: 2;
+      display: flex;
+      flex-direction: column;
+    }
+
+    canvas#freqChart {
+      width: 100% !important;
+      max-height: 220px;
+    }
+
+    /* ── Alert banner ── */
+    .alert-banner {
+      display: none;
+      padding: 0.5rem 1rem;
+      font-family: 'Orbitron', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.2em;
+      text-align: center;
+      animation: alertPulse 0.5s infinite;
+    }
+
+    .alert-banner.nuclear {
+      display: block;
+      background: rgba(255,51,51,0.15);
+      border: 1px solid var(--nu);
+      color: var(--nu);
+    }
+
+    @keyframes alertPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* ── Empty state ── */
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.7rem;
+      padding: 2rem;
+      letter-spacing: 0.1em;
+    }
+
+    /* ── Connection status ── */
+    #conn-status {
+      font-size: 0.65rem;
+      color: var(--muted);
+    }
+
+    #conn-status.connected { color: var(--green); }
+    #conn-status.error     { color: var(--red); }
+
+    /* ── Activity log ── */
+    .log-line {
+      font-size: 0.65rem;
+      color: var(--muted);
+      padding: 0.15rem 0;
+      border-bottom: 1px solid rgba(15,61,42,0.3);
+      line-height: 1.5;
+    }
+
+    .log-line .ts { color: var(--green-dim); margin-right: 0.5rem; }
+  </style>
 </head>
-<body class="bg-slate-950 text-slate-200 font-mono min-h-screen">
-    <div class="fixed inset-0 pointer-events-none z-50 opacity-10" style="background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 2px, 3px 100%;"></div>
+<body>
 
-    <div class="p-6 max-w-7xl mx-auto">
-        <header class="flex justify-between items-center border-b border-cyan-900/50 pb-6 mb-8">
-            <div>
-                <h1 class="text-4xl font-black tracking-tighter text-cyan-500 uppercase">Seismic <span class="text-white">Intell</span></h1>
-                <p class="text-xs text-cyan-700 tracking-[0.3em]">NEUTRAL REGION COMMAND CENTER // SECURE LINE</p>
-            </div>
-            <div class="text-right">
-                <div id="clock" class="text-xl font-bold">00:00:00 UTC</div>
-                <div class="text-[10px] text-emerald-500">SYSTEM STATUS: OPERATIONAL</div>
-            </div>
-        </header>
+<header>
+  <div class="logo">⬡ SEISMIC<span>CMD</span></div>
+  <div class="header-right">
+    <span><span class="status-dot"></span><span id="conn-status">CONNECTING...</span></span>
+    <span class="clock" id="clock">--:--:-- UTC</span>
+  </div>
+</header>
 
-        <div class="grid grid-cols-12 gap-6">
-            
-            <div class="col-span-12 lg:col-span-7 space-y-6">
-                <div class="glass border border-slate-800 p-4 rounded-sm relative overflow-hidden">
-                    <div class="absolute top-0 left-0 w-1 h-full bg-cyan-500"></div>
-                    <h2 class="text-sm font-bold mb-4 text-cyan-500 uppercase tracking-widest">Real-Time Signal Feed</h2>
-                    <div id="alerts-container" class="space-y-3 h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                        </div>
-                </div>
-            </div>
+<div id="alert-banner" class="alert-banner nuclear" style="display:none">
+  ⚠ NUCLEAR-CLASS EVENT DETECTED ⚠
+</div>
 
-            <div class="col-span-12 lg:col-span-5 space-y-6">
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="glass border border-slate-800 p-4 rounded-sm">
-                        <p class="text-[10px] text-slate-500 uppercase">Active Sensors</p>
-                        <p id="sensor-count" class="text-2xl font-bold text-white">0</p>
-                    </div>
-                    <div class="glass border border-slate-800 p-4 rounded-sm">
-                        <p class="text-[10px] text-slate-500 uppercase">Threat Level</p>
-                        <p id="threat-level" class="text-2xl font-bold text-emerald-400">LOW</p>
-                    </div>
-                </div>
+<div class="main">
 
-                <div class="glass border border-slate-800 p-4 rounded-sm h-[400px]">
-                    <h2 class="text-sm font-bold mb-4 text-slate-400 uppercase">Event Log</h2>
-                    <div class="overflow-y-auto h-[320px] text-[11px]">
-                        <table class="w-full">
-                            <thead class="sticky top-0 bg-slate-900 text-slate-500 uppercase">
-                                <tr>
-                                    <th class="pb-2 text-left">Time</th>
-                                    <th class="pb-2 text-left">Sensor</th>
-                                    <th class="pb-2 text-right">Type</th>
-                                </tr>
-                            </thead>
-                            <tbody id="history-table" class="divide-y divide-slate-800/50">
-                                </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <!-- LEFT: Replicas + stats -->
+  <div class="panel">
+    <div class="panel-header">
+      <span>REPLICA STATUS</span>
+      <span id="replica-count">0/0</span>
     </div>
-</body>
+    <div class="panel-body">
+      <div id="replica-list"></div>
 
-<script src="app.js"></script> 
+      <div class="panel-header" style="margin: 1rem -0.75rem 0.75rem; padding: 0.4rem 0.75rem;">
+        <span>EVENT COUNTS</span>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-box stat-tot">
+          <div class="stat-value" id="cnt-total">0</div>
+          <div class="stat-label">TOTAL</div>
+        </div>
+        <div class="stat-box stat-eq">
+          <div class="stat-value" id="cnt-eq">0</div>
+          <div class="stat-label">QUAKE</div>
+        </div>
+        <div class="stat-box stat-ex">
+          <div class="stat-value" id="cnt-ex">0</div>
+          <div class="stat-label">EXPLO</div>
+        </div>
+        <div class="stat-box stat-nu">
+          <div class="stat-value" id="cnt-nu">0</div>
+          <div class="stat-label">NUCLEAR</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER: Chart + event feed -->
+  <div class="panel chart-area">
+    <div class="panel-header">
+      <span>FREQUENCY DISTRIBUTION — LAST 50 EVENTS</span>
+    </div>
+    <div style="padding: 0.75rem; border-bottom: 1px solid var(--border);">
+      <canvas id="freqChart"></canvas>
+    </div>
+
+    <div class="filter-bar">
+      <button class="filter-btn active" data-filter="ALL">ALL</button>
+      <button class="filter-btn" data-filter="EARTHQUAKE">EARTHQUAKE</button>
+      <button class="filter-btn" data-filter="EXPLOSION">EXPLOSION</button>
+      <button class="filter-btn" data-filter="NUCLEAR">NUCLEAR</button>
+    </div>
+
+    <div class="panel-body" id="event-feed">
+      <div class="empty">AWAITING SIGNAL...</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Activity log -->
+  <div class="panel">
+    <div class="panel-header">
+      <span>SYSTEM LOG</span>
+    </div>
+    <div class="panel-body" id="activity-log"></div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+const GATEWAY = window.location.hostname === 'localhost'
+  ? 'http://localhost:8002'
+  : `http://${window.location.hostname}:8002`;
+
+// ── State ────────────────────────────────────────────────────────────────────
+let allEvents   = [];
+let activeFilter = 'ALL';
+let counts = { EARTHQUAKE: 0, EXPLOSION: 0, NUCLEAR: 0 };
+let nuclearAlertTimeout = null;
+
+// ── Clock ────────────────────────────────────────────────────────────────────
+function updateClock() {
+  document.getElementById('clock').textContent =
+    new Date().toUTCString().split(' ')[4] + ' UTC';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Chart ────────────────────────────────────────────────────────────────────
+const ctx = document.getElementById('freqChart').getContext('2d');
+const freqChart = new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: [],
+    datasets: [{
+      label: 'Dominant Frequency (Hz)',
+      data: [],
+      backgroundColor: [],
+      borderWidth: 0,
+      borderRadius: 2,
+    }]
+  },
+  options: {
+    responsive: true,
+    animation: { duration: 300 },
+    plugins: { legend: { display: false } },
+    scales: {
+      x: {
+        ticks: { color: '#3a6b50', font: { family: 'IBM Plex Mono', size: 9 }, maxRotation: 45 },
+        grid: { color: '#0f3d2a' }
+      },
+      y: {
+        ticks: { color: '#3a6b50', font: { family: 'IBM Plex Mono', size: 9 } },
+        grid: { color: '#0f3d2a' }
+      }
+    }
+  }
+});
+
+function updateChart(events) {
+  const last50 = events.slice(0, 50).reverse();
+  freqChart.data.labels = last50.map(e => e.sensor_id?.slice(0,8) ?? '?');
+  freqChart.data.datasets[0].data = last50.map(e => parseFloat(e.dominant_freq || 0).toFixed(2));
+  freqChart.data.datasets[0].backgroundColor = last50.map(e => {
+    if (e.event_type === 'EARTHQUAKE') return 'rgba(0,255,136,0.6)';
+    if (e.event_type === 'EXPLOSION')  return 'rgba(255,179,0,0.6)';
+    if (e.event_type === 'NUCLEAR')    return 'rgba(255,51,51,0.7)';
+    return 'rgba(0,204,255,0.5)';
+  });
+  freqChart.update();
+}
+
+// ── Event feed ───────────────────────────────────────────────────────────────
+function renderEventFeed() {
+  const feed = document.getElementById('event-feed');
+  const filtered = activeFilter === 'ALL'
+    ? allEvents
+    : allEvents.filter(e => e.event_type === activeFilter);
+
+  if (filtered.length === 0) {
+    feed.innerHTML = '<div class="empty">NO EVENTS DETECTED</div>';
+    return;
+  }
+
+  feed.innerHTML = filtered.slice(0, 100).map(e => {
+    const ts = e.detected_at ? new Date(e.detected_at).toUTCString().split(' ')[4] : '--:--:--';
+    const freq = parseFloat(e.dominant_freq || 0).toFixed(3);
+    return `
+      <div class="event-item ${e.event_type}">
+        <div class="event-type">${e.event_type}</div>
+        <div class="event-meta">
+          <strong>SENSOR</strong> ${e.sensor_id ?? 'unknown'}<br>
+          <strong>FREQ</strong>   ${freq} Hz &nbsp;|&nbsp; <strong>UTC</strong> ${ts}<br>
+          <strong>NODE</strong>   ${e.replica_id ?? '—'}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function addEvents(newEvents) {
+  for (const e of newEvents) {
+    // Deduplicate client-side too
+    if (!allEvents.find(x => x.id === e.id)) {
+      allEvents.unshift(e);
+      counts[e.event_type] = (counts[e.event_type] || 0) + 1;
+
+      if (e.event_type === 'NUCLEAR') triggerNuclearAlert();
+    }
+  }
+  allEvents = allEvents.slice(0, 500); // keep last 500 in memory
+
+  document.getElementById('cnt-total').textContent = allEvents.length;
+  document.getElementById('cnt-eq').textContent    = counts.EARTHQUAKE || 0;
+  document.getElementById('cnt-ex').textContent    = counts.EXPLOSION  || 0;
+  document.getElementById('cnt-nu').textContent    = counts.NUCLEAR    || 0;
+
+  updateChart(allEvents);
+  renderEventFeed();
+}
+
+// ── Nuclear alert ─────────────────────────────────────────────────────────────
+function triggerNuclearAlert() {
+  const banner = document.getElementById('alert-banner');
+  banner.style.display = 'block';
+  clearTimeout(nuclearAlertTimeout);
+  nuclearAlertTimeout = setTimeout(() => { banner.style.display = 'none'; }, 8000);
+}
+
+// ── Filters ──────────────────────────────────────────────────────────────────
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active','active-eq','active-ex','active-nu'));
+    const f = btn.dataset.filter;
+    activeFilter = f;
+    btn.classList.add('active');
+    if (f === 'EARTHQUAKE') btn.classList.add('active-eq');
+    if (f === 'EXPLOSION')  btn.classList.add('active-ex');
+    if (f === 'NUCLEAR')    btn.classList.add('active-nu');
+    renderEventFeed();
+  });
+});
+
+// ── Activity log ──────────────────────────────────────────────────────────────
+function log(msg) {
+  const logEl = document.getElementById('activity-log');
+  const ts = new Date().toUTCString().split(' ')[4];
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="ts">${ts}</span>${msg}`;
+  logEl.prepend(line);
+  if (logEl.children.length > 80) logEl.lastChild.remove();
+}
+
+// ── Replica status ────────────────────────────────────────────────────────────
+async function updateReplicaStatus() {
+  try {
+    const resp = await fetch(`${GATEWAY}/api/replicas`);
+    const data = await resp.json();
+    const list = document.getElementById('replica-list');
+    const total   = Object.keys(data).length;
+    const healthy = Object.values(data).filter(r => r.healthy).length;
+    document.getElementById('replica-count').textContent = `${healthy}/${total}`;
+
+    list.innerHTML = Object.entries(data).map(([url, info]) => {
+      const name = url.split('//')[1] || url;
+      const cls  = info.healthy ? 'online' : 'offline';
+      return `
+        <div class="replica-card ${cls}">
+          <div class="replica-dot"></div>
+          <div class="replica-name">${name}</div>
+          <div class="replica-status">${info.healthy ? 'ONLINE' : 'OFFLINE'}</div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    log(`Replica status fetch failed: ${e.message}`);
+  }
+}
+
+// ── SSE connection ────────────────────────────────────────────────────────────
+function connectSSE() {
+  const statusEl = document.getElementById('conn-status');
+  statusEl.textContent = 'CONNECTING...';
+  statusEl.className = '';
+
+  const evtSource = new EventSource(`${GATEWAY}/api/events/stream`);
+
+  evtSource.onopen = () => {
+    statusEl.textContent = 'STREAM ACTIVE';
+    statusEl.className = 'connected';
+    log('SSE stream connected to gateway');
+  };
+
+  evtSource.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'heartbeat' || data.type === 'connected') return;
+    if (Array.isArray(data)) {
+      addEvents(data);
+      log(`${data.length} new event(s) received`);
+    }
+  };
+
+  evtSource.onerror = () => {
+    statusEl.textContent = 'RECONNECTING...';
+    statusEl.className = 'error';
+    evtSource.close();
+    log('SSE connection lost — retrying in 5s');
+    setTimeout(connectSSE, 5000);
+  };
+}
+
+// ── Initial load ──────────────────────────────────────────────────────────────
+async function initialLoad() {
+  try {
+    const resp = await fetch(`${GATEWAY}/api/events?limit=50`);
+    const data = await resp.json();
+    addEvents(data);
+    log(`Loaded ${data.length} historical events`);
+  } catch(e) {
+    log(`Initial load failed: ${e.message}`);
+  }
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+initialLoad();
+connectSSE();
+updateReplicaStatus();
+setInterval(updateReplicaStatus, 5000);
+</script>
 </body>
 </html>

@@ -1,0 +1,108 @@
+version: "3.9"
+
+services:
+
+  # ── Simulator (provided, do not modify) ────────────────────────────────────
+  simulator:
+    image: seismic-signal-simulator:multiarch_v1
+    ports:
+      - "8080:8080"
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER:     seismic
+      POSTGRES_PASSWORD: seismic
+      POSTGRES_DB:       seismic
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seismic"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Broker (neutral region – fan-out only) ─────────────────────────────────
+  broker:
+    build: ./broker
+    environment:
+      SIMULATOR_URL:        http://simulator:8080
+      PROCESSING_REPLICAS:  http://processing-1:8001,http://processing-2:8001,http://processing-3:8001
+    ports:
+      - "8000:8000"
+    depends_on:
+      - simulator
+    restart: unless-stopped
+
+  # ── Processing replicas ────────────────────────────────────────────────────
+  processing-1:
+    build: ./processing
+    environment:
+      SIMULATOR_URL:  http://simulator:8080
+      DATABASE_URL:   postgresql://seismic:seismic@postgres:5432/seismic
+      REPLICA_ID:     processing-1
+      SAMPLING_RATE_HZ: "20"
+      WINDOW_SECONDS:   "10"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      simulator:
+        condition: service_started
+    restart: unless-stopped   # auto-restarts when killed by SHUTDOWN
+
+  processing-2:
+    build: ./processing
+    environment:
+      SIMULATOR_URL:  http://simulator:8080
+      DATABASE_URL:   postgresql://seismic:seismic@postgres:5432/seismic
+      REPLICA_ID:     processing-2
+      SAMPLING_RATE_HZ: "20"
+      WINDOW_SECONDS:   "10"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      simulator:
+        condition: service_started
+    restart: unless-stopped
+
+  processing-3:
+    build: ./processing
+    environment:
+      SIMULATOR_URL:  http://simulator:8080
+      DATABASE_URL:   postgresql://seismic:seismic@postgres:5432/seismic
+      REPLICA_ID:     processing-3
+      SAMPLING_RATE_HZ: "20"
+      WINDOW_SECONDS:   "10"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      simulator:
+        condition: service_started
+    restart: unless-stopped
+
+  # ── Gateway ────────────────────────────────────────────────────────────────
+  gateway:
+    build: ./gateway
+    environment:
+      PROCESSING_REPLICAS: http://processing-1:8001,http://processing-2:8001,http://processing-3:8001
+      HEALTH_CHECK_INTERVAL: "5"
+    ports:
+      - "8002:8002"
+    depends_on:
+      - processing-1
+      - processing-2
+      - processing-3
+    restart: unless-stopped
+
+  # ── Frontend ───────────────────────────────────────────────────────────────
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+volumes:
+  pgdata:
