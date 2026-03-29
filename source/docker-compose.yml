@@ -44,13 +44,13 @@ services:
       REPLICA_ID:     processing-1
       SAMPLING_RATE_HZ: "20"
       WINDOW_SECONDS:   "10"
-      EVENT_COOLDOWN_SECONDS: "15"
+      EVENT_COOLDOWN_SECONDS: "1"
     depends_on:
       postgres:
         condition: service_healthy
       simulator:
         condition: service_started
-    restart: unless-stopped   # auto-restarts when killed by SHUTDOWN
+    restart: unless-stopped
 
   processing-2:
     build: ./processing
@@ -60,7 +60,7 @@ services:
       REPLICA_ID:     processing-2
       SAMPLING_RATE_HZ: "20"
       WINDOW_SECONDS:   "10"
-      EVENT_COOLDOWN_SECONDS: "15"
+      EVENT_COOLDOWN_SECONDS: "1"
     depends_on:
       postgres:
         condition: service_healthy
@@ -76,7 +76,7 @@ services:
       REPLICA_ID:     processing-3
       SAMPLING_RATE_HZ: "20"
       WINDOW_SECONDS:   "10"
-      EVENT_COOLDOWN_SECONDS: "15"
+      EVENT_COOLDOWN_SECONDS: "1"
     depends_on:
       postgres:
         condition: service_healthy
