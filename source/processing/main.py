@@ -35,6 +35,8 @@ REPLICA_ID      = os.getenv("REPLICA_ID", "replica-1")
 
 # ── State ────────────────────────────────────────────────────────────────────
 windows: dict[str, deque] = defaultdict(lambda: deque(maxlen=WINDOW_SIZE))
+last_event_time: dict[str, datetime] = {}
+EVENT_COOLDOWN_SECONDS = int(os.getenv("EVENT_COOLDOWN_SECONDS", "15"))
 db_pool = None
 
 
@@ -169,8 +171,13 @@ async def ingest(measurement: Measurement):
         except Exception:
             detected_at = datetime.now(timezone.utc)
 
-        await persist_event(sensor_id, event_type, dominant_freq, detected_at)
-        logger.info(f"[{REPLICA_ID}] {event_type} on {sensor_id} @ {dominant_freq:.2f} Hz")
+        # Cooldown: don't save another event for the same sensor within N seconds
+        last = last_event_time.get(sensor_id)
+        now = datetime.now(timezone.utc)
+        if last is None or (now - last).total_seconds() >= EVENT_COOLDOWN_SECONDS:
+            last_event_time[sensor_id] = now
+            await persist_event(sensor_id, event_type, dominant_freq, detected_at)
+            logger.info(f"[{REPLICA_ID}] {event_type} on {sensor_id} @ {dominant_freq:.2f} Hz")
 
     return {
         "status": "processed",
