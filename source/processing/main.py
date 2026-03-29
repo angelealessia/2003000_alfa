@@ -36,7 +36,7 @@ REPLICA_ID      = os.getenv("REPLICA_ID", "replica-1")
 # ── State ────────────────────────────────────────────────────────────────────
 windows: dict[str, deque] = defaultdict(lambda: deque(maxlen=WINDOW_SIZE))
 last_event_time: dict[str, datetime] = {}
-EVENT_COOLDOWN_SECONDS = int(os.getenv("EVENT_COOLDOWN_SECONDS", "15"))
+EVENT_COOLDOWN_SECONDS = int(os.getenv("EVENT_COOLDOWN_SECONDS", "1"))
 db_pool = None
 
 
@@ -160,7 +160,7 @@ async def ingest(measurement: Measurement):
     sensor_id = measurement.sensor_id
     windows[sensor_id].append(measurement.value)
 
-    if len(windows[sensor_id]) < WINDOW_SIZE:
+    if len(windows[sensor_id]) < 20:
         return {"status": "buffering", "samples": len(windows[sensor_id])}
 
     dominant_freq, event_type = analyze_window(list(windows[sensor_id]))
