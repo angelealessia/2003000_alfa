@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SEISMIC COMMAND — Event Storage</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #030a06;
+      --surface:   #071410;
+      --border:    #0f3d2a;
+      --green:     #00ff88;
+      --green-dim: #00994d;
+      --amber:     #ffb300;
+      --red:       #ff3333;
+      --blue:      #00ccff;
+      --text:      #a0f0c0;
+      --muted:     #3a6b50;
+      --eq:        #00ff88;
+      --ex:        #ffb300;
+      --nu:        #ff3333;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'IBM Plex Mono', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,255,136,0.015) 2px,
+        rgba(0,255,136,0.015) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 2rem;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(90deg, #000d08, #071410);
+    }
+
+    .logo {
+      font-family: 'Orbitron', monospace;
+      font-size: 1.1rem;
+      font-weight: 900;
+      letter-spacing: 0.2em;
+      color: var(--green);
+      text-shadow: 0 0 20px rgba(0,255,136,0.5);
+    }
+
+    .logo span { color: var(--muted); font-weight: 400; }
+
+    .back-btn {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      background: transparent;
+      padding: 0.3rem 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .back-btn:hover {
+      border-color: var(--green-dim);
+      color: var(--green);
+      background: rgba(0,255,136,0.05);
+    }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.6rem 2rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-wrap: wrap;
+    }
+
+    .toolbar-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+
+    .filter-select {
+      padding: 0.2rem 0.5rem;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.62rem;
+      letter-spacing: 0.05em;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .filter-select:focus, .filter-select:hover {
+      border-color: var(--green-dim);
+    }
+
+    .filter-select option {
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .toolbar-spacer { flex: 1; }
+
+    .stat-pill {
+      font-size: 0.62rem;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 0.2rem 0.6rem;
+    }
+
+    .stat-pill span {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.75rem;
+      margin-left: 0.3rem;
+    }
+
+    .stat-pill.eq span { color: var(--eq); }
+    .stat-pill.ex span { color: var(--ex); }
+    .stat-pill.nu span { color: var(--nu); }
+    .stat-pill.tot span { color: var(--blue); }
+
+    .refresh-btn {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.62rem;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      background: transparent;
+      padding: 0.2rem 0.7rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .refresh-btn:hover {
+      border-color: var(--green-dim);
+      color: var(--green);
+      background: rgba(0,255,136,0.05);
+    }
+
+    /* ── Table ── */
+    .table-wrap {
+      padding: 1.5rem 2rem;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.68rem;
+    }
+
+    thead tr {
+      border-bottom: 1px solid var(--green-dim);
+    }
+
+    th {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.55rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: var(--green-dim);
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    th:hover { color: var(--green); }
+    th .sort-arrow { margin-left: 0.3rem; opacity: 0.4; }
+    th.sorted .sort-arrow { opacity: 1; color: var(--green); }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(15,61,42,0.4);
+      transition: background 0.15s;
+    }
+
+    tbody tr:hover { background: rgba(0,255,136,0.03); }
+
+    td {
+      padding: 0.45rem 0.75rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    td.id-col    { color: rgba(58,107,80,0.7); font-size: 0.6rem; }
+    td.type-col  { font-family: 'Orbitron', monospace; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em; }
+    td.freq-col  { color: var(--blue); }
+    td.ts-col    { font-family: 'Share Tech Mono', monospace; }
+    td.node-col  { color: rgba(58,107,80,0.8); }
+    td.sensor-col { color: var(--text); }
+    td.region-col { font-size: 0.62rem; }
+
+    .type-EARTHQUAKE { color: var(--eq); }
+    .type-EXPLOSION  { color: var(--ex); }
+    .type-NUCLEAR    { color: var(--nu); }
+
+    /* ── Empty / loading ── */
+    .empty-row td {
+      text-align: center;
+      padding: 3rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      font-size: 0.7rem;
+    }
+
+    /* ── Pagination ── */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 1rem 2rem 2rem;
+    }
+
+    .page-btn {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.62rem;
+      letter-spacing: 0.05em;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      padding: 0.25rem 0.6rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .page-btn:hover, .page-btn.active {
+      border-color: var(--green-dim);
+      color: var(--green);
+      background: rgba(0,255,136,0.05);
+    }
+
+    .page-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .page-info {
+      font-size: 0.62rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⬡ SEISMIC<span>CMD</span> <span style="font-size:0.7rem; margin-left:1rem;">/ EVENT STORAGE</span></div>
+  <a class="back-btn" href="index.html">← BACK TO DASHBOARD</a>
+</header>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <span class="toolbar-label">TYPE</span>
+  <select class="filter-select" id="f-type">
+    <option value="">ALL</option>
+    <option value="EARTHQUAKE">EARTHQUAKE</option>
+    <option value="EXPLOSION">EXPLOSION</option>
+    <option value="NUCLEAR">NUCLEAR</option>
+  </select>
+
+  <span class="toolbar-label">CATEGORY</span>
+  <select class="filter-select" id="f-category">
+    <option value="">ALL</option>
+    <option value="field">FIELD</option>
+    <option value="datacenter">DATACENTER</option>
+  </select>
+
+  <span class="toolbar-label">REGION</span>
+  <select class="filter-select" id="f-region">
+    <option value="">ALL</option>
+  </select>
+
+  <span class="toolbar-label">SENSOR</span>
+  <select class="filter-select" id="f-sensor">
+    <option value="">ALL</option>
+  </select>
+
+  <span class="toolbar-label">REPLICA</span>
+  <select class="filter-select" id="f-replica">
+    <option value="">ALL</option>
+    <option value="processing-1">processing-1</option>
+    <option value="processing-2">processing-2</option>
+    <option value="processing-3">processing-3</option>
+  </select>
+
+  <div class="toolbar-spacer"></div>
+
+  <div class="stat-pill tot">TOTAL<span id="s-total">0</span></div>
+  <div class="stat-pill eq">EQ<span id="s-eq">0</span></div>
+  <div class="stat-pill ex">EX<span id="s-ex">0</span></div>
+  <div class="stat-pill nu">NU<span id="s-nu">0</span></div>
+
+  <button class="refresh-btn" onclick="loadEvents()">↻ REFRESH</button>
+</div>
+
+<!-- Table -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th onclick="sortBy('id')">ID <span class="sort-arrow" id="arr-id">↕</span></th>
+        <th onclick="sortBy('event_type')">TYPE <span class="sort-arrow" id="arr-event_type">↕</span></th>
+        <th onclick="sortBy('sensor_id')">SENSOR <span class="sort-arrow" id="arr-sensor_id">↕</span></th>
+        <th>NAME</th>
+        <th>REGION</th>
+        <th>CATEGORY</th>
+        <th onclick="sortBy('dominant_freq')">FREQ (Hz) <span class="sort-arrow" id="arr-dominant_freq">↕</span></th>
+        <th onclick="sortBy('detected_at')">TIMESTAMP (UTC) <span class="sort-arrow" id="arr-detected_at">↕</span></th>
+        <th onclick="sortBy('replica_id')">REPLICA <span class="sort-arrow" id="arr-replica_id">↕</span></th>
+      </tr>
+    </thead>
+    <tbody id="event-table-body">
+      <tr class="empty-row"><td colspan="9">LOADING...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination -->
+<div class="pagination">
+  <button class="page-btn" id="btn-prev" onclick="changePage(-1)">← PREV</button>
+  <span class="page-info" id="page-info">— / —</span>
+  <button class="page-btn" id="btn-next" onclick="changePage(1)">NEXT →</button>
+</div>
+
+<script>
+const GATEWAY = window.location.hostname === 'localhost'
+  ? 'http://localhost:8002'
+  : `http://${window.location.hostname}:8002`;
+
+const SENSORS = {
+  'sensor-01': { name: 'Borealis Ridge',       region: 'North Atlantic',      category: 'field' },
+  'sensor-02': { name: 'Atlas Escarpment',      region: 'Mediterranean Basin', category: 'field' },
+  'sensor-03': { name: 'Kestrel Basin',         region: 'Central Asia',        category: 'field' },
+  'sensor-04': { name: 'Ember Fault',           region: 'East Africa',         category: 'field' },
+  'sensor-05': { name: 'Helios Shelf',          region: 'Aegean Arc',          category: 'field' },
+  'sensor-06': { name: 'Tundra Line',           region: 'Northern Frontier',   category: 'field' },
+  'sensor-07': { name: 'Argent Plateau',        region: 'South Atlantic',      category: 'field' },
+  'sensor-08': { name: 'DC North Perimeter',    region: 'Replica Datacenter',  category: 'datacenter' },
+  'sensor-09': { name: 'DC East Cooling Hall',  region: 'Replica Datacenter',  category: 'datacenter' },
+  'sensor-10': { name: 'DC South Power Bus',    region: 'Replica Datacenter',  category: 'datacenter' },
+  'sensor-11': { name: 'DC West Access Tunnel', region: 'Replica Datacenter',  category: 'datacenter' },
+  'sensor-12': { name: 'DC Core Slab',          region: 'Replica Datacenter',  category: 'datacenter' },
+};
+
+// Populate dropdowns
+const regions = [...new Set(Object.values(SENSORS).map(s => s.region))];
+const regionSel = document.getElementById('f-region');
+regions.forEach(r => {
+  const o = document.createElement('option'); o.value = r; o.textContent = r.toUpperCase();
+  regionSel.appendChild(o);
+});
+
+const sensorSel = document.getElementById('f-sensor');
+function populateSensors(catFilter, regFilter) {
+  sensorSel.innerHTML = '<option value="">ALL</option>';
+  Object.entries(SENSORS).forEach(([id, s]) => {
+    if (catFilter && s.category !== catFilter) return;
+    if (regFilter && s.region   !== regFilter)   return;
+    const o = document.createElement('option');
+    o.value = id; o.textContent = `${id} — ${s.name}`;
+    sensorSel.appendChild(o);
+  });
+}
+populateSensors('', '');
+
+// ── State ────────────────────────────────────────────────────────────────────
+let allEvents  = [];
+let filtered   = [];
+let sortKey    = 'detected_at';
+let sortAsc    = false;
+let page       = 0;
+const PAGE_SIZE = 50;
+
+// ── Load ─────────────────────────────────────────────────────────────────────
+async function loadEvents() {
+  document.getElementById('event-table-body').innerHTML =
+    '<tr class="empty-row"><td colspan="9">LOADING...</td></tr>';
+  try {
+    const resp = await fetch(`${GATEWAY}/api/events?limit=200`);
+    allEvents = await resp.json();
+    page = 0;
+    applyFilters();
+  } catch(e) {
+    document.getElementById('event-table-body').innerHTML =
+      `<tr class="empty-row"><td colspan="9">ERROR: ${e.message}</td></tr>`;
+  }
+}
+
+// ── Filter ────────────────────────────────────────────────────────────────────
+function applyFilters() {
+  const fType    = document.getElementById('f-type').value;
+  const fCat     = document.getElementById('f-category').value;
+  const fRegion  = document.getElementById('f-region').value;
+  const fSensor  = document.getElementById('f-sensor').value;
+  const fReplica = document.getElementById('f-replica').value;
+
+  filtered = allEvents.filter(e => {
+    const meta = SENSORS[e.sensor_id];
+    if (fType    && e.event_type  !== fType)           return false;
+    if (fCat     && meta?.category !== fCat)           return false;
+    if (fRegion  && meta?.region   !== fRegion)        return false;
+    if (fSensor  && e.sensor_id    !== fSensor)        return false;
+    if (fReplica && e.replica_id   !== fReplica)       return false;
+    return true;
+  });
+
+  // Update stats
+  document.getElementById('s-total').textContent = filtered.length;
+  document.getElementById('s-eq').textContent = filtered.filter(e => e.event_type === 'EARTHQUAKE').length;
+  document.getElementById('s-ex').textContent = filtered.filter(e => e.event_type === 'EXPLOSION').length;
+  document.getElementById('s-nu').textContent = filtered.filter(e => e.event_type === 'NUCLEAR').length;
+
+  page = 0;
+  sortAndRender();
+}
+
+// ── Sort ──────────────────────────────────────────────────────────────────────
+function sortBy(key) {
+  if (sortKey === key) sortAsc = !sortAsc;
+  else { sortKey = key; sortAsc = false; }
+  document.querySelectorAll('th').forEach(th => th.classList.remove('sorted'));
+  const arr = document.getElementById(`arr-${key}`);
+  if (arr) {
+    arr.textContent = sortAsc ? '↑' : '↓';
+    arr.closest('th').classList.add('sorted');
+  }
+  sortAndRender();
+}
+
+function sortAndRender() {
+  filtered.sort((a, b) => {
+    let va = a[sortKey] ?? '';
+    let vb = b[sortKey] ?? '';
+    if (sortKey === 'id' || sortKey === 'dominant_freq') {
+      va = parseFloat(va); vb = parseFloat(vb);
+    }
+    if (va < vb) return sortAsc ? -1 : 1;
+    if (va > vb) return sortAsc ? 1 : -1;
+    return 0;
+  });
+  renderTable();
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById('event-table-body');
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  page = Math.min(page, totalPages - 1);
+
+  document.getElementById('page-info').textContent = `${page + 1} / ${totalPages}`;
+  document.getElementById('btn-prev').disabled = page === 0;
+  document.getElementById('btn-next').disabled = page >= totalPages - 1;
+
+  const slice = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  if (slice.length === 0) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="9">NO EVENTS FOUND</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = slice.map(e => {
+    const meta = SENSORS[e.sensor_id] || {};
+    const ts   = e.detected_at ? new Date(e.detected_at).toUTCString().replace('GMT', '') : '—';
+    const freq = parseFloat(e.dominant_freq || 0).toFixed(3);
+    return `
+      <tr>
+        <td class="id-col">#${e.id}</td>
+        <td class="type-col type-${e.event_type}">${e.event_type}</td>
+        <td class="sensor-col">${e.sensor_id}</td>
+        <td>${meta.name ?? '—'}</td>
+        <td class="region-col">${meta.region ?? '—'}</td>
+        <td>${meta.category ? meta.category.toUpperCase() : '—'}</td>
+        <td class="freq-col">${freq}</td>
+        <td class="ts-col">${ts}</td>
+        <td class="node-col">${e.replica_id ?? '—'}</td>
+      </tr>`;
+  }).join('');
+}
+
+function changePage(dir) {
+  page += dir;
+  renderTable();
+}
+
+// ── Filter listeners ──────────────────────────────────────────────────────────
+['f-type', 'f-region', 'f-sensor', 'f-replica'].forEach(id => {
+  document.getElementById(id).addEventListener('change', applyFilters);
+});
+
+document.getElementById('f-category').addEventListener('change', () => {
+  populateSensors(
+    document.getElementById('f-category').value,
+    document.getElementById('f-region').value
+  );
+  applyFilters();
+});
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+loadEvents();
+</script>
+</body>
+</html>
