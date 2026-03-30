@@ -30,6 +30,27 @@ and exposes a real-time dashboard to operators.
   [FRONTEND]           ← real-time dashboard
 ```
 
+The simulator generates real-time seismic signals coming from geographically
+distributed sensors. Each sensor produces a continuous stream of measurements delivered
+through WebSocket connections. 2. Broker The broker acts as a fan-out component. It receives the
+incoming measurements from the simulator and redistributes each message to all available
+processing replicas. The broker performs no data transformation or analysis. Its only responsibility
+is message routing. 3. Processing Replicas (P1, P2, P3) Each processing replica maintains an
+in-memory sliding window of recent sensor measurements. When the window is full, the replica
+applies Fast Fourier Transform (FFT) to detect the dominant frequency component of the signal.
+Based on the dominant frequency, the event is classified into: - Earthquake - Explosion -
+Nuclear-like event Each replica processes the same input stream, ensuring fault tolerance in case
+one replica fails. 4. PostgreSQL Database All detected events are stored in a shared PostgreSQL
+database. The database ensures duplicate-safe persistence using a UNIQUE constraint on
+sensor_id and timestamp. This guarantees idempotent writes when multiple replicas process
+identical data. 5. Gateway The gateway provides a single entry point for the frontend. It routes
+requests to healthy processing replicas using a round-robin strategy. The gateway also exposes a
+Server-Sent Events (SSE) endpoint to deliver real-time updates. 6. Frontend Dashboard The
+frontend displays detected seismic events in real time. It provides visualization tools such as event
+lists, frequency charts, and replica health status. Data Flow Summary Simulator → Broker →
+Processing Replicas → Database → Gateway → Frontend This distributed architecture ensures
+fault tolerance, scalability, and continuous availability of the system.
+
 ---
 
 ## Standard Event Schema
