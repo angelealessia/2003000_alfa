@@ -349,8 +349,8 @@ async function loadEvents() {
   document.getElementById('event-table-body').innerHTML =
     '<tr class="empty-row"><td colspan="8">LOADING...</td></tr>';
   try {
-    // carica fino a 2000 eventi dal gateway
-    const resp = await fetch(`${GATEWAY}/api/events?limit=200`);
+    
+    const resp = await fetch(`${GATEWAY}/api/events?`);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     allEvents = await resp.json();
     page = 0;
