@@ -503,8 +503,32 @@ let allEvents    = [];
 let activeFilter = 'ALL';
 let activeRegion   = '';
 let activeSensor   = '';
-let counts = { EARTHQUAKE: 0, EXPLOSION: 0, NUCLEAR: 0 };
 let nuclearAlertTimeout = null;
+
+// Contatori separati da allEvents — sopravvivono alla navigazione via sessionStorage
+let totalCount = 0;
+let counts = { EARTHQUAKE: 0, EXPLOSION: 0, NUCLEAR: 0 };
+try {
+  const saved = sessionStorage.getItem('seismic_counts');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    counts = parsed.counts || counts;
+    totalCount = parsed.total || 0;
+  }
+} catch(e) {}
+
+function saveCounters() {
+  try {
+    sessionStorage.setItem('seismic_counts', JSON.stringify({ counts, total: totalCount }));
+  } catch(e) {}
+}
+
+function updateCounterUI() {
+  document.getElementById('cnt-total').textContent = totalCount;
+  document.getElementById('cnt-eq').textContent    = counts.EARTHQUAKE || 0;
+  document.getElementById('cnt-ex').textContent    = counts.EXPLOSION  || 0;
+  document.getElementById('cnt-nu').textContent    = counts.NUCLEAR    || 0;
+}
 
 // ── Clock ────────────────────────────────────────────────────────────────────
 function updateClock() {
@@ -601,16 +625,14 @@ function addEvents(newEvents) {
     if (!allEvents.find(x => x.id === e.id)) {
       allEvents.unshift(e);
       counts[e.event_type] = (counts[e.event_type] || 0) + 1;
+      totalCount++;
       if (e.event_type === 'NUCLEAR') triggerNuclearAlert();
     }
   }
-  allEvents = allEvents.slice(0, 2000);
+  allEvents = allEvents.slice(0, 50); // tieni solo gli ultimi 50 per il grafico/feed
 
-  document.getElementById('cnt-total').textContent = allEvents.length;
-  document.getElementById('cnt-eq').textContent    = counts.EARTHQUAKE || 0;
-  document.getElementById('cnt-ex').textContent    = counts.EXPLOSION  || 0;
-  document.getElementById('cnt-nu').textContent    = counts.NUCLEAR    || 0;
-
+  updateCounterUI();
+  saveCounters();
   updateChart(allEvents);
   renderEventFeed();
 }
@@ -732,16 +754,32 @@ function connectSSE() {
 // ── Initial load ──────────────────────────────────────────────────────────────
 async function initialLoad() {
   try {
-    const resp = await fetch(`${GATEWAY}/api/events?`);
-    const data = await resp.json();
-    addEvents(data);
-    log(`Loaded ${data.length} historical events`);
+    // Carica tutti gli eventi per avere i contatori reali dal DB
+    const respAll = await fetch(`${GATEWAY}/api/events?limit=2000`);
+    const allData = await respAll.json();
+
+    // Inizializza i contatori dal DB (sovrascrive sessionStorage)
+    counts = { EARTHQUAKE: 0, EXPLOSION: 0, NUCLEAR: 0 };
+    totalCount = allData.length;
+    for (const e of allData) {
+      counts[e.event_type] = (counts[e.event_type] || 0) + 1;
+    }
+
+    // Mostra solo gli ultimi 50 nel grafico e nel feed
+    allEvents = allData.slice(0, 50);
+
+    updateCounterUI();
+    saveCounters();
+    updateChart(allEvents);
+    renderEventFeed();
+    log(`Loaded ${allData.length} total events from DB`);
   } catch(e) {
     log(`Initial load failed: ${e.message}`);
   }
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
+updateCounterUI(); // mostra subito i contatori salvati prima dell'initialLoad
 initialLoad();
 connectSSE();
 updateReplicaStatus();
