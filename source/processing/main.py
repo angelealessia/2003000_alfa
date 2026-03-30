@@ -30,13 +30,13 @@ SIMULATOR_URL   = os.getenv("SIMULATOR_URL", "http://simulator:8080")
 DATABASE_URL    = os.getenv("DATABASE_URL", "postgresql://seismic:seismic@postgres:5432/seismic")
 SAMPLING_RATE   = int(os.getenv("SAMPLING_RATE_HZ", "20"))
 WINDOW_SECONDS  = int(os.getenv("WINDOW_SECONDS", "10"))
-WINDOW_SIZE     = SAMPLING_RATE * WINDOW_SECONDS   # e.g. 200 samples
+WINDOW_SIZE     = SAMPLING_RATE * WINDOW_SECONDS
 REPLICA_ID      = os.getenv("REPLICA_ID", "replica-1")
 
 # ── State ────────────────────────────────────────────────────────────────────
 windows: dict[str, deque] = defaultdict(lambda: deque(maxlen=WINDOW_SIZE))
 last_event_time: dict[str, datetime] = {}
-EVENT_COOLDOWN_SECONDS = int(os.getenv("EVENT_COOLDOWN_SECONDS", "1"))
+EVENT_COOLDOWN_SECONDS = int(os.getenv("EVENT_COOLDOWN_SECONDS", "15"))
 db_pool = None
 
 
@@ -48,19 +48,17 @@ def classify_event(dominant_freq: float) -> str | None:
         return "EXPLOSION"
     elif dominant_freq >= 8.0:
         return "NUCLEAR"
-    return None   # below threshold - noise
+    return None
 
 
 def analyze_window(samples: list[float]) -> tuple[float, str | None]:
     """Run FFT on samples and return (dominant_freq, event_type)."""
     arr = np.array(samples)
-    # Remove DC offset
     arr -= arr.mean()
     n = len(arr)
     fft_vals = np.abs(np.fft.rfft(arr))
     freqs    = np.fft.rfftfreq(n, d=1.0 / SAMPLING_RATE)
 
-    # Ignore DC component (index 0)
     fft_vals[0] = 0
     dominant_idx  = np.argmax(fft_vals)
     dominant_freq = float(freqs[dominant_idx])
@@ -150,8 +148,8 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 # ── API ───────────────────────────────────────────────────────────────────────
 class Measurement(BaseModel):
     sensor_id: str
-    timestamp: str   # ISO UTC string from simulator
-    value: float     # mm/s
+    timestamp: str
+    value: float
 
 
 @app.post("/ingest")
@@ -171,7 +169,6 @@ async def ingest(measurement: Measurement):
         except Exception:
             detected_at = datetime.now(timezone.utc)
 
-        # Cooldown: don't save another event for the same sensor within N seconds
         last = last_event_time.get(sensor_id)
         now = datetime.now(timezone.utc)
         if last is None or (now - last).total_seconds() >= EVENT_COOLDOWN_SECONDS:
@@ -193,10 +190,15 @@ async def health():
 
 
 @app.get("/events")
-async def get_events(limit: int = 50, sensor_id: str = None, event_type: str = None):
+async def get_events(
+    limit: int = 50,
+    sensor_id: str = None,
+    event_type: str = None,
+    after_id: int = 0,
+):
     """Query detected events from the shared DB."""
-    query = "SELECT * FROM events WHERE 1=1"
-    params = []
+    query = "SELECT * FROM events WHERE id > $1"
+    params = [after_id]
     if sensor_id:
         params.append(sensor_id)
         query += f" AND sensor_id = ${len(params)}"
@@ -204,7 +206,7 @@ async def get_events(limit: int = 50, sensor_id: str = None, event_type: str = N
         params.append(event_type)
         query += f" AND event_type = ${len(params)}"
     params.append(limit)
-    query += f" ORDER BY detected_at DESC LIMIT ${len(params)}"
+    query += f" ORDER BY id ASC LIMIT ${len(params)}"
 
     async with db_pool.acquire() as conn:
         rows = await conn.fetch(query, *params)
