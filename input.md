@@ -82,27 +82,27 @@ Events detected by a processing replica are stored in the `events` table:
 
 ## User Stories
 
-### Epic 1 — Data Ingestion
+### Epic 1 — System Status & Monitoring
 
 | ID  | Story | Priority |
 |-----|-------|----------|
-| US01 | As the system, I want to discover available sensors at startup so I can subscribe to all active streams. | HIGH |
-| US02 | As the system, I want the broker to maintain persistent WebSocket connections to sensors and reconnect on failure. | HIGH |
-| US03 | As the system, I want each sensor measurement to be forwarded to all active processing replicas within 500ms. | HIGH |
-| US04 | As the system, I want the broker to not perform any data processing, only routing. | HIGH |
-| US05 | As the system, I want the broker to recover gracefully if a replica is temporarily unavailable. | MEDIUM |
+| US01 | As an Operator, I want to see a live "STREAM ACTIVE" or "RECONNECTING" indicator so that I know if the real-time data feed is successfully connected. | HIGH |
+| US02 | As an Operator, I want to view a "Replica Status" panel showing the state (ONLINE/OFFLINE) of each processing node (e.g., processing-1) so that I can monitor system health. | HIGH |
+| US03 |As an Operator, I want to see the current system time in UTC at the top of the screen so that I can accurately correlate seismic events with a standard timezone. | MEDIUM |
+| US04 | As an Operator, I want to view a continuously updating "System Log" on the right sidebar so that I can track background processes, stream connections, and system errors. | HIGH |
+| US05 | As an Operator, I want each entry in the System Log to include a timestamp so that I can track exactly when connection losses or new events occurred. | MEDIUM |
 
-### Epic 2 — Processing & Analysis
+### Epic 2 — Event Summary & Alerts
 
 | ID  | Story | Priority |
 |-----|-------|----------|
-| US06 | As the system, I want each replica to maintain an in-memory sliding window of the last N samples per sensor. | HIGH |
-| US07 | As the system, I want each replica to apply FFT to the sliding window when full to extract frequency components. | HIGH |
-| US08 | As the system, I want each replica to identify the dominant frequency component from FFT output. | HIGH |
-| US09 | As the system, I want to classify detected events into EARTHQUAKE, EXPLOSION, or NUCLEAR based on dominant frequency. | HIGH |
-| US10 | As the system, I want events below 0.5 Hz to be ignored as background noise. | MEDIUM |
+| US06 | As an Operator, I want to view a "ALL" event counter so that I have a quick overview of all recorded seismic activities in the current session. | HIGH |
+| US07 | As an Operator, I want to see a dedicated "QUAKE" counter so that I can monitor the volume of low-frequency natural seismic events. | HIGH |
+| US08 | As an Operator, I want to see a dedicated "EXPLO" counter so that I can track the volume of mid-frequency explosion anomalies. | HIGH |
+| US09 | As an Operator, I want to see a dedicated "NUCLEAR" counter so that I am instantly aware of the volume of critical, high-frequency events. | HIGH |
+| US10 | As an Operator, I want to see a prominent, flashing red alert banner (e.g., "A NUCLEAR-CLASS EVENT DETECTED") at the top of the screen when a critical event occurs to ensure immediate awareness. | HIGH |
 
-### Epic 3 — Fault Tolerance
+### Epic 3 — Data Visualization
 
 | ID  | Story | Priority |
 |-----|-------|----------|
@@ -111,26 +111,26 @@ Events detected by a processing replica are stored in the `events` table:
 | US13 | As the system, I want terminated replicas to restart automatically via Docker's restart policy. | HIGH |
 | US14 | As the gateway, I want to perform periodic health checks on all replicas and mark unavailable ones as offline. | HIGH |
 | US15 | As the gateway, I want to route requests only to healthy replicas (round-robin over healthy set). | HIGH |
-| US16 | As the system, I want overall operation to continue uninterrupted when up to N-1 replicas have failed. | HIGH |
+| US16 | As the gateway, I want to route requests only to healthy replicas (round-robin over healthy set). | HIGH |
 
-### Epic 4 — Persistence
-
-| ID  | Story | Priority |
-|-----|-------|----------|
-| US17 | As the system, I want detected events to be stored in a shared PostgreSQL database. | HIGH |
-| US18 | As the system, I want duplicate events (same sensor_id + detected_at) to be silently ignored (idempotent insert). | HIGH |
-| US19 | As an operator, I want to query historical events filtered by sensor or event type. | MEDIUM |
-| US20 | As the system, I want the database schema to be created automatically at startup. | MEDIUM |
-
-### Epic 5 — Dashboard & API
+### Epic 4 — Dynamic Filtering
 
 | ID  | Story | Priority |
 |-----|-------|----------|
-| US21 | As an operator, I want to see a real-time feed of detected events on the dashboard. | HIGH |
-| US22 | As an operator, I want events to appear on the dashboard within seconds of detection. | HIGH |
-| US23 | As an operator, I want to filter events by type (EARTHQUAKE / EXPLOSION / NUCLEAR). | MEDIUM |
-| US24 | As an operator, I want to see a frequency distribution chart of the last 50 events. | MEDIUM |
-| US25 | As an operator, I want to see the live status (online/offline) of all processing replicas. | MEDIUM |
+| US17 | As an Operator, I want to use quick-filter buttons (ALL, EARTHQUAKE, EXPLOSION, NUCLEAR) so that I can instantly isolate specific types of events across the entire dashboard. | HIGH |
+| US18 | As an Operator, I want to use a "REGION" dropdown so that I can filter data by geographical zones (e.g., Aegean Arc, East Africa) to monitor localized activity. | HIGH |
+| US19 | As an Operator, I want to use a "SENSOR" dropdown so that I can drill down into the readings of a single specific hardware unit. | HIGH |
+| US20 | As an Operator, I want the dashboard to display a clear "NO EVENTS DETECTED" message when my active filters yield no matching data so that I know the system is still responsive | LOW |
+
+### Epic 5 — Real-time Event Feed
+
+| ID  | Story | Priority |
+|-----|-------|----------|
+| US21 | As an Operator, I want to see a real-time scrolling feed of individual event cards below the filter bar so that I can review the details of recent detections. | HIGH |
+| US22 | As an Operator, I want each event card to prominently display the classification type, source sensor name, and deployment location (e.g., sensor-11 — DC West Access Tunnel). | MEDIUM |
+| US23 | As an Operator, I want each event card to explicitly state the Region, Category, and the specific Processing Node (e.g., processing-1) that handled the event. | MEDIUM |
+| US24 | As an Operator, I want each event card to display the exact Dominant Frequency (FREQ) and the UTC Timestamp of the detection for accurate record-keeping. | HIGH |
+| US25 | As an Operator, I want the event feed to dynamically update to only show cards that match my currently selected filters (Type, Category, Region, Sensor) so that I can analyze specific data subsets without clutter. | HIGH |
 
 ---
 
