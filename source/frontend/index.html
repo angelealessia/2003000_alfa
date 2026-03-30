@@ -732,7 +732,7 @@ function connectSSE() {
 // ── Initial load ──────────────────────────────────────────────────────────────
 async function initialLoad() {
   try {
-    const resp = await fetch(`${GATEWAY}/api/events?limit=200`);
+    const resp = await fetch(`${GATEWAY}/api/events?`);
     const data = await resp.json();
     addEvents(data);
     log(`Loaded ${data.length} historical events`);
