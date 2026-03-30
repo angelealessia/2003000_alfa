@@ -547,7 +547,7 @@ const freqChart = new Chart(ctx, {
 
 function updateChart(events) {
   const last50 = events.slice(0, 50).reverse();
-  freqChart.data.labels = last50.map(e => e.sensor_id?.slice(0,8) ?? '?');
+  freqChart.data.labels = last50.map(e => e.sensor_id ?? '?');
   freqChart.data.datasets[0].data = last50.map(e => parseFloat(e.dominant_freq || 0).toFixed(2));
   freqChart.data.datasets[0].backgroundColor = last50.map(e => {
     if (e.event_type === 'EARTHQUAKE') return 'rgba(0,255,136,0.6)';
