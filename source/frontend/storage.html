@@ -350,7 +350,7 @@ async function loadEvents() {
     '<tr class="empty-row"><td colspan="8">LOADING...</td></tr>';
   try {
     
-    const resp = await fetch(`${GATEWAY}/api/events?`);
+    const resp = await fetch(`${GATEWAY}/api/events?limit=2000`);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     allEvents = await resp.json();
     page = 0;
