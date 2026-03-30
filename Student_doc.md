@@ -138,3 +138,16 @@ See `/booklets/architecture.md`.
 - **Sliding window reset on restart:** In-memory windows are lost on replica restart. This is acceptable because the system is designed for continuous streaming — windows refill within `WINDOW_SECONDS` seconds of restart.
 - **Gateway as stateless proxy:** The gateway does not store events itself; it proxies queries to a healthy replica. This avoids state synchronization issues.
 - **No external message broker:** Per the exam specification, Kafka/RabbitMQ are not used. The custom broker service fulfills the fan-out role.
+
+### Event Schema
+
+Each detected event persisted in PostgreSQL follows the structure:
+
+| field | description |
+|------|-------------|
+| sensor_id | sensor identifier |
+| event_type | EARTHQUAKE / EXPLOSION / NUCLEAR |
+| dominant_freq | frequency peak detected via FFT |
+| detected_at | timestamp of last sample in window |
+| replica_id | replica that produced the event |
+| created_at | persistence timestamp |
