@@ -432,12 +432,6 @@
 
     <!-- Location filters (nuovi) -->
     <div class="location-filters">
-      <label>CATEGORY</label>
-      <select class="filter-select" id="filter-category">
-        <option value="">ALL</option>
-        <option value="field">FIELD</option>
-        <option value="datacenter">DATACENTER</option>
-      </select>
       <label>REGION</label>
       <select class="filter-select" id="filter-region">
         <option value="">ALL</option>
@@ -507,7 +501,6 @@ Object.entries(SENSORS).forEach(([id, s]) => {
 // ── State ────────────────────────────────────────────────────────────────────
 let allEvents    = [];
 let activeFilter = 'ALL';
-let activeCategory = '';
 let activeRegion   = '';
 let activeSensor   = '';
 let counts = { EARTHQUAKE: 0, EXPLOSION: 0, NUCLEAR: 0 };
@@ -570,7 +563,6 @@ function applyFilters(events) {
   return events.filter(e => {
     if (activeFilter !== 'ALL' && e.event_type !== activeFilter) return false;
     const meta = SENSORS[e.sensor_id];
-    if (activeCategory && meta?.category !== activeCategory) return false;
     if (activeRegion   && meta?.region   !== activeRegion)   return false;
     if (activeSensor   && e.sensor_id    !== activeSensor)   return false;
     return true;
@@ -596,7 +588,7 @@ function renderEventFeed() {
         <div class="event-type">${e.event_type}</div>
         <div class="event-meta">
           <strong>SENSOR</strong> ${e.sensor_id ?? 'unknown'}${meta ? ` — ${meta.name}` : ''}<br>
-          ${meta ? `<strong>REGION</strong> ${meta.region} &nbsp;|&nbsp; <strong>CAT</strong> ${meta.category.toUpperCase()}<br>` : ''}
+          ${meta ? `<strong>REGION</strong> ${meta.region}<br>` : ''}
           <strong>FREQ</strong>   ${freq} Hz &nbsp;|&nbsp; <strong>UTC</strong> ${ts}<br>
           <strong>NODE</strong>   ${e.replica_id ?? '—'}
         </div>
@@ -646,13 +638,6 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
 });
 
 // ── Location filters (nuovi) ─────────────────────────────────────────────────
-document.getElementById('filter-category').addEventListener('change', e => {
-  activeCategory = e.target.value;
-  // aggiorna sensori disponibili in base alla categoria selezionata
-  updateSensorDropdown();
-  renderEventFeed();
-});
-
 document.getElementById('filter-region').addEventListener('change', e => {
   activeRegion = e.target.value;
   updateSensorDropdown();
@@ -665,12 +650,10 @@ document.getElementById('filter-sensor').addEventListener('change', e => {
 });
 
 function updateSensorDropdown() {
-  // filtra i sensori disponibili in base a categoria e regione selezionate
   sensorSelect.innerHTML = '<option value="">ALL</option>';
   activeSensor = '';
   Object.entries(SENSORS).forEach(([id, s]) => {
-    if (activeCategory && s.category !== activeCategory) return;
-    if (activeRegion   && s.region   !== activeRegion)   return;
+    if (activeRegion && s.region !== activeRegion) return;
     const opt = document.createElement('option');
     opt.value = id;
     opt.textContent = `${id} — ${s.name}`;
