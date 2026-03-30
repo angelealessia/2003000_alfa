@@ -9,8 +9,7 @@ import asyncio
 import os
 import json
 import logging
-import time
-from fastapi import FastAPI, HTTPException, Request, Query
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 import httpx
@@ -26,11 +25,9 @@ REPLICAS = os.getenv(
 
 HEALTH_CHECK_INTERVAL = int(os.getenv("HEALTH_CHECK_INTERVAL", "5"))
 
-# Track which replicas are alive
 replica_health: dict[str, bool] = {r: True for r in REPLICAS}
 _rr_index = 0
 
-# SSE subscribers for real-time event push
 sse_subscribers: list[asyncio.Queue] = []
 
 
@@ -82,16 +79,15 @@ async def event_poller():
                 try:
                     resp = await client.get(
                         f"{replica}/events",
-                        params={"limit": 100}
+                        params={"limit": 100, "after_id": last_seen_id}
                     )
                     if resp.status_code == 200:
                         events = resp.json()
-                        new_events = [e for e in events if e.get("id", 0) > last_seen_id]
-                        if new_events:
-                            last_seen_id = max(e["id"] for e in new_events)
+                        if events:
+                            last_seen_id = max(e["id"] for e in events)
                             for subscriber in list(sse_subscribers):
                                 try:
-                                    await subscriber.put(new_events)
+                                    await subscriber.put(events)
                                 except Exception:
                                     pass
                 except Exception as e:
@@ -128,7 +124,7 @@ async def health():
 
 @app.get("/api/events")
 async def get_events(
-    limit: int = Query(50, le=200),
+    limit: int = Query(50, le=2000),
     sensor_id: str = Query(None),
     event_type: str = Query(None),
 ):
@@ -164,13 +160,10 @@ async def event_stream():
 
     async def generate():
         try:
-            # Send initial ping
             yield f"data: {json.dumps({'type': 'connected'})}\n\n"
             while True:
                 try:
                     events = await asyncio.wait_for(queue.get(), timeout=15.0)
-                    # FIX: manda il batch come array JSON invece che evento per evento
-                    # così il frontend riceve Array.isArray(data) === true
                     events_serialized = [
                         {
                             k: str(v) if hasattr(v, 'isoformat') else v
