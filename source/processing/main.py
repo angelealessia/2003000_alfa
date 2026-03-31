@@ -36,6 +36,8 @@ REPLICA_ID      = os.getenv("REPLICA_ID", "replica-1")
 # ── State ────────────────────────────────────────────────────────────────────
 windows: dict[str, deque] = defaultdict(lambda: deque(maxlen=WINDOW_SIZE))
 last_event_time: dict[str, datetime] = {}
+last_explosion_time: dict[str, datetime] = {}
+EXPLOSION_COOLDOWN = 5
 EVENT_COOLDOWN_SECONDS = int(os.getenv("EVENT_COOLDOWN_SECONDS", "15"))
 db_pool = None
 
@@ -171,6 +173,15 @@ async def ingest(measurement: Measurement):
 
         last = last_event_time.get(sensor_id)
         now = datetime.now(timezone.utc)
+
+        # Cooldown aggiuntivo solo per EXPLOSION — evita duplicati della stessa sinusoide
+        if event_type == "EXPLOSION":
+            last_exp = last_explosion_time.get(sensor_id)
+            if last_exp and (now - last_exp).total_seconds() < EXPLOSION_COOLDOWN:
+                return {"status": "processed", "sensor_id": sensor_id,
+                        "dominant_freq": dominant_freq, "event_type": event_type}
+            last_explosion_time[sensor_id] = now
+
         if last is None or (now - last).total_seconds() >= EVENT_COOLDOWN_SECONDS:
             last_event_time[sensor_id] = now
             await persist_event(sensor_id, event_type, dominant_freq, detected_at)
