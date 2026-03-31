@@ -102,16 +102,16 @@ Events detected by a processing replica are stored in the `events` table:
 | US09 | As an Operator, I want to see a dedicated "NUCLEAR" counter so that I am instantly aware of the volume of critical, high-frequency events. | HIGH |
 | US10 | As an Operator, I want to see a prominent, flashing red alert banner (e.g., "A NUCLEAR-CLASS EVENT DETECTED") at the top of the screen when a critical event occurs to ensure immediate awareness. | HIGH |
 
-### Epic 3 — Data Visualization
+### Epic 3 — Data Visualization & Historical Storage
 
 | ID  | Story | Priority |
 |-----|-------|----------|
-| US11 | As the system, I want each replica to connect to the simulator control stream (SSE) and receive shutdown commands. | HIGH |
-| US12 | As the system, I want a replica to terminate itself immediately upon receiving a SHUTDOWN command. | HIGH |
-| US13 | As the system, I want terminated replicas to restart automatically via Docker's restart policy. | HIGH |
-| US14 | As the gateway, I want to perform periodic health checks on all replicas and mark unavailable ones as offline. | HIGH |
-| US15 | As the gateway, I want to route requests only to healthy replicas (round-robin over healthy set). | HIGH |
-| US16 | As the gateway, I want to route requests only to healthy replicas (round-robin over healthy set). | HIGH |
+| US11 | As an Operator, I want to view a "Frequency Distribution" bar chart on the main dashboard so that I can visually analyze the immediate patterns of the last 50 events. | HIGH |
+| US12 | As an Operator, I want to hover over individual bars in the Frequency Distribution chart so that a tooltip appears showing the specific source sensor and dominant frequency. | MEDIUM |
+| US13 | As an Operator, I want to navigate to a dedicated "Event Storage" screen via the sidebar so that I can browse a complete, paginated historical log of all recorded seismic events. | HIGH |
+| US14 | As an Operator, I want the Event Storage table to display detailed columns (Type, Sensor, Name, Region, Frequency, Timestamp, and Replica) so that I have full technical context for every historical record. | HIGH |
+| US15 | As an Operator, I want to use dedicated dropdown menus (Region, Sensor, Replica) within the Storage view so that I can cross-filter the historical data and isolate specific past anomalies. | HIGH |
+| US16 | As an Operator, I want to see dynamic summary counters (Total, EQ, EX, NU) at the top of the Storage view that update automatically based on my active filters so that I instantly know the breakdown of the queried data. | MEDIUM |
 
 ### Epic 4 — Dynamic Filtering
 
