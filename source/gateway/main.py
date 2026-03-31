@@ -23,7 +23,7 @@ REPLICAS = os.getenv(
     "http://processing-1:8001,http://processing-2:8001,http://processing-3:8001"
 ).split(",")
 
-HEALTH_CHECK_INTERVAL = int(os.getenv("HEALTH_CHECK_INTERVAL", "5"))
+HEALTH_CHECK_INTERVAL = int(os.getenv("HEALTH_CHECK_INTERVAL", "2"))
 
 replica_health: dict[str, bool] = {r: True for r in REPLICAS}
 _rr_index = 0
@@ -92,7 +92,7 @@ async def event_poller():
                                     pass
                 except Exception as e:
                     logger.debug(f"Poll error: {e}")
-            await asyncio.sleep(2)
+            await asyncio.sleep(1)
 
 
 @asynccontextmanager
