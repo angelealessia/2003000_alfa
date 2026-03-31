@@ -89,7 +89,7 @@ services:
     build: ./gateway
     environment:
       PROCESSING_REPLICAS: http://processing-1:8001,http://processing-2:8001,http://processing-3:8001
-      HEALTH_CHECK_INTERVAL: "5"
+      HEALTH_CHECK_INTERVAL: "2"
     ports:
       - "8002:8002"
     depends_on:
