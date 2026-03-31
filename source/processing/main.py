@@ -36,8 +36,6 @@ REPLICA_ID      = os.getenv("REPLICA_ID", "replica-1")
 # ── State ────────────────────────────────────────────────────────────────────
 windows: dict[str, deque] = defaultdict(lambda: deque(maxlen=WINDOW_SIZE))
 last_event_time: dict[str, datetime] = {}
-last_explosion_time: dict[str, datetime] = {}
-EXPLOSION_COOLDOWN = 5
 EVENT_COOLDOWN_SECONDS = int(os.getenv("EVENT_COOLDOWN_SECONDS", "15"))
 db_pool = None
 
@@ -174,13 +172,20 @@ async def ingest(measurement: Measurement):
         last = last_event_time.get(sensor_id)
         now = datetime.now(timezone.utc)
 
-        # Cooldown aggiuntivo solo per EXPLOSION — evita duplicati della stessa sinusoide
+        # Filtro cross-replica per EXPLOSION: controlla nel DB condiviso
+        # se un'altra replica ha già salvato un'esplosione per questo sensore
+        # negli ultimi 5 secondi — vale tra tutte le repliche
         if event_type == "EXPLOSION":
-            last_exp = last_explosion_time.get(sensor_id)
-            if last_exp and (now - last_exp).total_seconds() < EXPLOSION_COOLDOWN:
+            async with db_pool.acquire() as conn:
+                recent = await conn.fetchval("""
+                    SELECT COUNT(*) FROM events
+                    WHERE sensor_id = $1
+                    AND event_type = 'EXPLOSION'
+                    AND created_at > NOW() - INTERVAL '5 seconds'
+                """, sensor_id)
+            if recent > 0:
                 return {"status": "processed", "sensor_id": sensor_id,
                         "dominant_freq": dominant_freq, "event_type": event_type}
-            last_explosion_time[sensor_id] = now
 
         if last is None or (now - last).total_seconds() >= EVENT_COOLDOWN_SECONDS:
             last_event_time[sensor_id] = now
