@@ -10,8 +10,7 @@
 
 ## System Description
 
-The Seismic Intelligence Platform is a distributed, fault-tolerant system for
-real-time seismic signal analysis. It ingests measurements from geographically
+The Seismic CMD, fault-tolerant system for real-time seismic signal analysis. It ingests measurements from geographically
 distributed sensors, applies frequency-domain analysis, classifies detected
 events, and exposes a live dashboard to command center operators.
 
@@ -46,7 +45,7 @@ events, and exposes a live dashboard to command center operators.
   - Exposes `/health` for gateway health checks and `/events` for event queries.
 
 **FFT Parameters:**
-- Window size: 200 samples (20 Hz × 10 seconds)
+- Window size: 20 Hz × 6 seconds.
 - Frequency resolution: 0.1 Hz
 - Dominant frequency: argmax of rfft magnitude (DC excluded)
 
@@ -74,11 +73,12 @@ events, and exposes a live dashboard to command center operators.
 - **Port:** 3000
 - **Features:**
   - SSE connection to gateway for real-time events.
-  - Bar chart of frequency distribution (last 50 events).
+  - Bar chart of frequency distribution.
   - Event feed with filtering by type.
   - Replica status panel (live health check results).
   - Nuclear event alert banner.
   - System activity log.
+  - Event storage visualization.
 
 ---
 
